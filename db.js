@@ -16,9 +16,14 @@ export async function initDb() {
     const store = fs.getFirestore(app);
     const auth = au.getAuth(app);
     const runs = fs.collection(store, 'runs');
+    const live = fs.collection(store, 'live');
     const rowOf = d => {
       const x = d.data({ serverTimestamps: 'estimate' });
       return { id: d.id, name: x.name, secs: x.secs, day: x.day, at: x.at && x.at.toMillis ? x.at.toMillis() : Date.now() };
+    };
+    const liveOf = d => {
+      const x = d.data({ serverTimestamps: 'estimate' });
+      return { id: d.id, name: x.name, stage: x.stage, at: x.at && x.at.toMillis ? x.at.toMillis() : Date.now() };
     };
     return {
       async addRun(name, secs, day) {
@@ -35,6 +40,15 @@ export async function initDb() {
           const added = first ? [] : snap.docChanges().filter(c => c.type === 'added').map(c => rowOf(c.doc));
           first = false;
           onRows(snap.docs.map(rowOf).sort((a, b) => a.secs - b.secs), added);
+        }, onError);
+      },
+      // Live intruder map: one small doc per player in progress.
+      newLiveId: () => fs.doc(live).id,
+      setLive: (id, name, stage, day) => fs.setDoc(fs.doc(live, id), { name, stage, day, at: fs.serverTimestamp() }),
+      dropLive: id => fs.deleteDoc(fs.doc(live, id)),
+      watchLive(day, onChange, onError) {
+        return fs.onSnapshot(fs.query(live, fs.where('day', '==', day)), snap => {
+          onChange(snap.docs.map(liveOf), snap.docChanges().map(c => ({ type: c.type, row: liveOf(c.doc) })));
         }, onError);
       },
       deleteRun: id => fs.deleteDoc(fs.doc(store, 'runs', id)),

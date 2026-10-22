@@ -30,6 +30,12 @@ function siren() {
 }
 $('soundBtn').addEventListener('click', () => { soundOn = !soundOn; audio(); $('soundBtn').textContent = soundOn ? 'Sound on' : 'Sound off'; $('soundBtn').setAttribute('aria-pressed', soundOn); });
 
+function blip(hi) {
+  const a = audio(); if (!a) return; const t = a.currentTime, o = a.createOscillator(), g = a.createGain(); o.type = 'square';
+  o.frequency.setValueAtTime(hi ? 880 : 440, t); o.frequency.setValueAtTime(hi ? 1320 : 660, t + .08);
+  g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + .2); o.connect(g).connect(a.destination); o.start(t); o.stop(t + .21);
+}
+
 /* ---------- full screen + keep awake ---------- */
 let wake = null;
 async function keepAwake() { try { if (navigator.wakeLock) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
@@ -59,6 +65,78 @@ function render(freshIds = new Set()) {
   $('stBest').textContent = rows.length ? fmt(rows[0].secs) : '—';
 }
 
+/* ---------- live intruder map ---------- */
+// Players at stage 1–5 sit at that node; stage 6 means they opened the vault.
+// A dot disappears when its phone stops checking in (STALE), or soon after the vault opens.
+const STALE = 120000, VAULT_SHOW = 25000, MAXC = 4;
+const ALERT = {
+  1: ['w', n => 'New intruder ' + n + ' is probing the firewall'],
+  2: ['w', n => n + ' cracked the cipher and slipped past the firewall'],
+  3: ['h', n => n + ' cracked Jordan’s account'],
+  4: ['h', n => n + ' traced the break-in in the server logs'],
+  5: ['c', n => n + ' cleared Jordan’s inbox and is heading for the vault'],
+  6: ['c', n => n + ' OPENED THE VAULT']
+};
+const live = new Map(), demo = new Map(), chips = new Map(), seenStage = new Map();
+function addAlert(stageN, name) {
+  const [sev, txt] = ALERT[stageN]; const li = document.createElement('li'); li.className = 'new';
+  const tm = document.createElement('span'); tm.className = 'at'; tm.textContent = new Date().toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const sv = document.createElement('span'); sv.className = 'sv ' + sev; sv.textContent = SEV[sev];
+  const tx = document.createElement('span'); tx.textContent = txt(name || 'Anonymous');
+  li.append(tm, sv, tx); $('alerts').prepend(li);
+  while ($('alerts').children.length > 6) $('alerts').lastChild.remove();
+  if (soundOn) blip(stageN >= 5);
+}
+function track(row, initial) {
+  const prev = seenStage.get(row.id) || 0;
+  if (!initial && row.stage > prev) addAlert(row.stage, row.name);
+  if (initial) row.movedAt = row.at; else if (row.stage !== prev) row.movedAt = Date.now(); else row.movedAt = (live.get(row.id) || demo.get(row.id) || row).movedAt || row.at;
+  row.seen = initial ? row.at : Date.now();
+  seenStage.set(row.id, row.stage);
+}
+function onScreen(now = Date.now()) {
+  return [...live.values(), ...demo.values()].filter(r => now - r.seen < STALE && !(r.stage === 6 && now - r.movedAt > VAULT_SHOW));
+}
+function drawMap() {
+  const rows = onScreen(), net = $('net');
+  const inside = rows.filter(r => r.stage < 6).length;
+  $('inCount').textContent = inside;
+  $('inText').textContent = inside === 0 ? 'intruders detected. The network is quiet… for now.' : (inside === 1 ? 'intruder' : 'intruders') + ' inside the network right now';
+  $('inCount').classList.toggle('hot', inside > 0);
+  const byNode = { 1: [], 2: [], 3: [], 4: [], 5: [] };
+  rows.forEach(r => byNode[Math.min(r.stage, 5)].push(r));
+  const want = new Map();
+  Object.entries(byNode).forEach(([n, list]) => {
+    list.sort((a, b) => a.movedAt - b.movedAt);
+    const node = net.querySelector('.node[data-n="' + n + '"]');
+    node.classList.toggle('hot', list.length > 0); node.querySelector('.nc').textContent = list.length || '';
+    const shown = list.length > MAXC ? list.slice(0, MAXC - 1) : list;
+    shown.forEach((r, i) => want.set(r.id, { n: +n, i, name: r.name || 'Anonymous', won: r.stage === 6 }));
+    if (list.length > MAXC) want.set('_more' + n, { n: +n, i: MAXC - 1, name: '+' + (list.length - MAXC + 1) + ' more', more: true });
+  });
+  chips.forEach((el, id) => { if (!want.has(id)) { chips.delete(id); el.classList.add('gone'); setTimeout(() => el.remove(), 600); } });
+  want.forEach((w, id) => {
+    let el = chips.get(id);
+    if (!el) {
+      el = document.createElement('div'); el.className = 'chip';
+      el.style.setProperty('--x', w.more ? (w.n * 20 - 10) + '%' : '-6%'); el.style.setProperty('--i', w.i);
+      net.appendChild(el); chips.set(id, el); void el.offsetWidth;
+    }
+    el.textContent = w.name; el.classList.toggle('more', !!w.more); el.classList.toggle('won', !!w.won);
+    el.style.setProperty('--x', (w.n * 20 - 10) + '%'); el.style.setProperty('--i', w.i);
+  });
+}
+setInterval(drawMap, 5000);
+
+// Staff "Test alarm": a fake intruder runs the course on this screen only.
+function runDemo() {
+  const id = '_demo' + Date.now(), name = 'TEST-' + (10 + Math.floor(Math.random() * 90));
+  [1, 2, 3, 4, 5, 6].forEach((n, k) => setTimeout(() => {
+    const row = { id, name, stage: n, at: Date.now() }; track(row, false); demo.set(id, row); drawMap();
+    if (n === 6) { setTimeout(() => { demo.delete(id); drawMap(); }, 8000); queue.push({ name, secs: 154, id: '_test' }); setTimeout(celebrate, 2500); }
+  }, k * 2200));
+}
+
 /* ---------- celebration ---------- */
 const queue = []; let busy = false, raf = 0;
 function celebrate() {
@@ -78,7 +156,7 @@ function rain() {
     raf = requestAnimationFrame(draw); };
   draw();
 }
-$('testBtn').addEventListener('click', () => { audio(); queue.push({ name: 'Test Hacker', secs: 154, id: '_test' }); celebrate(); });
+$('testBtn').addEventListener('click', () => { audio(); runDemo(); });
 
 /* ---------- staff sign-in ---------- */
 $('staffBtn').addEventListener('click', async () => {
@@ -96,13 +174,23 @@ $('manageBtn').addEventListener('click', () => { manage = !manage; $('manageBtn'
 
 /* ---------- start ---------- */
 (async () => {
-  render();
+  render(); drawMap();
   db = await initDb();
   if (!db) { note('Leaderboard not connected: add your Firebase settings to config.js (see README).'); return; }
   db.onAuth(u => { staff = !!u; $('manageBtn').hidden = !staff; $('staffBtn').textContent = staff ? 'Sign out' : 'Staff sign-in'; if (!staff) manage = false; render(); });
-  let day = dayKey(), unsub = null;
+  let day = dayKey(), unsub = null, unsubLive = null;
   const sub = () => {
     if (unsub) unsub();
+    if (unsubLive) unsubLive();
+    let firstLive = true;
+    live.clear();
+    unsubLive = db.watchLive(day, (all, changes) => {
+      changes.forEach(({ type, row }) => {
+        if (type === 'removed') { live.delete(row.id); seenStage.delete(row.id); return; }
+        track(row, firstLive); live.set(row.id, row);
+      });
+      firstLive = false; drawMap();
+    }, () => note('Live map stopped. Check that the latest firestore.rules are published, then reload.'));
     unsub = db.watchDay(day, (r, added) => {
       rows = r; note('');
       const fresh = new Set();

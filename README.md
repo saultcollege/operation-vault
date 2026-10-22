@@ -3,7 +3,7 @@
 A timed hacking mission for the Sault College Computer Networking & Cyber Security booth.
 
 - **index.html**: the game. Visitors play it on their phones.
-- **board.html**: the live leaderboard for the big monitor.
+- **board.html**: the big monitor: a live intruder map plus today's leaderboard.
 - **config.js**: the only file you edit (padlock combination + Firebase settings).
 
 Setup takes about 20 minutes. Steps 1–5 are a one-time job.
@@ -55,11 +55,13 @@ The big-screen QR code points to your site automatically. If you use a custom do
 
 | Screen | Open this | Do this |
 |---|---|---|
-| Big monitor | `.../board.html` | Click **Full screen**, then **Sound on**. Click **Test alarm** to try the celebration. |
+| Big monitor | `.../board.html` | Click **Full screen**, then **Sound on**. Click **Test alarm**: a test intruder runs across the map, then the celebration plays. Only this screen sees it. |
 | Booth tablet (optional) | `.../index.html?kiosk` | Same game, but it resets itself after a minute idle on the win screen, or three minutes mid-game. |
 | Visitors' phones | Scan the QR code | Nothing to do. Players post their own times. |
 
 **Padlock:** set a resettable 4-digit lock to the combination in config.js. Players see it on the win screen.
+
+**Intruder map:** players type a hacker name before they start (blank gets a codename like `VIPER-42`). Their dot moves along Firewall → Staff login → Server → Inbox → Vault as they clear each defence, and the alert feed calls out each step. A dot disappears 25 seconds after its player opens the vault, when they press **Play again**, or 2 minutes after their phone goes quiet.
 
 **Removing a name:** on the board, click **Staff sign-in**, log in, click **Manage**, then click ✕ next to the entry.
 
@@ -67,7 +69,9 @@ The big-screen QR code points to your site automatically. If you use a custom do
 
 ## Good to know
 
-- The game still works if Firebase isn't set up or the Wi-Fi drops. Players just can't post a time.
+- The game still works if Firebase isn't set up or the Wi-Fi drops. Players just can't post a time or show up on the map.
+- **Updating from an older version?** Paste the new **firestore.rules** into **Firestore → Rules** (keep your staff UID in it) and click **Publish**. Without that, the intruder map stays empty and the board says so.
+- Like posted times, map dots come from visitors' phones with no sign-in, so someone with developer tools could add or remove dots. They're temporary and vanish on their own.
 - The Firestore rules accept only a name (1–16 characters) and a time between 25 seconds and an hour, and posted times can't be edited. A determined visitor with developer tools could still post a fake time, which is the trade-off for no sign-in. Staff can delete it.
 - Firebase's free tier allows tens of thousands of reads and writes a day, far more than a booth needs.
 - To change the cipher, profile, log or phishing messages, edit `game.js`. Each challenge is clearly labelled.

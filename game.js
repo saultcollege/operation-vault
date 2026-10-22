@@ -39,12 +39,37 @@ function tick() { if (running) $('clock').textContent = fmt(elapsed()); }
 function bad(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); buzz(); }
 
 function start() {
-  audio();
+  const typed = cleanName($('codeIn').value);
+  if (typed && !isAppropriate(typed)) { $('m0').hidden = false; $('m0').className = 'msg bad'; $('m0').textContent = 'That name can’t go on the big screen. Please pick another.'; bad($('codeIn')); return; }
+  $('m0').hidden = true;
+  const name = typed || codename();
+  $('hudName').textContent = name;
+  audio(); liveStart(name);
   t0 = performance.now(); penalty = 0; running = true; stage = 1;
   $('hud').hidden = false; pips(); clearInterval(ticking); ticking = setInterval(tick, 250);
   resetStages(); show('s1'); setTimeout(() => $('shift').focus(), 50);
 }
 $('startBtn').addEventListener('click', start);
+$('codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') start(); });
+
+/* ---------- live intruder map (board.html) ---------- */
+// While someone plays, one small Firestore doc says which stage they're on.
+// The heartbeat keeps the dot on the board; a quiet dot fades after 2 min.
+const CODE_A = ['GHOST', 'VIPER', 'RAVEN', 'CIPHER', 'NOVA', 'ROGUE', 'SHADOW', 'BYTE', 'GLITCH', 'ZERO', 'SPECTRE', 'PHANTOM'];
+const codename = () => CODE_A[Math.floor(Math.random() * CODE_A.length)] + '-' + (10 + Math.floor(Math.random() * 90));
+let liveId = null, liveName = '', liveBeat = null, liveEnd = null;
+function liveSet(n) { dbReady.then(db => { if (db && liveId) return db.setLive(liveId, liveName, n, dayKey()); }).catch(() => {}); }
+function liveStart(name) {
+  liveStop(); liveName = name;
+  dbReady.then(db => { if (!db) return; liveId = db.newLiveId(); liveSet(1); liveBeat = setInterval(() => { if (running) liveSet(stage); }, 45000); });
+}
+function liveStop() {
+  clearInterval(liveBeat); clearTimeout(liveEnd);
+  const id = liveId; liveId = null;
+  if (id) dbReady.then(db => db && db.dropLive(id)).catch(() => {});
+}
+function liveDone() { liveSet(6); clearInterval(liveBeat); clearTimeout(liveEnd); liveEnd = setTimeout(liveStop, 30000); }
+addEventListener('pagehide', liveStop);
 
 /* ---------- stage 1: cipher ---------- */
 const WORDS = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'];
@@ -171,7 +196,7 @@ function reward(n) {
   $('rwTitle').textContent = RW[n][1]; $('rwText').textContent = RW[n][2];
   $('rwLbl').textContent = 'VAULT DIGIT ' + n; $('rwDig').textContent = VAULT[n - 1];
   $('rwNext').textContent = n < 4 ? 'Next defence →' : 'Go to the vault →';
-  stage = n + 1; pips(); show('reward'); $('rwNext').focus();
+  stage = n + 1; pips(); liveSet(stage); show('reward'); $('rwNext').focus();
 }
 $('rwNext').addEventListener('click', () => {
   if (stage === 2) { show('s2'); $('a2').focus(); }
@@ -194,7 +219,7 @@ function press(k) {
   renderSlots();
   if (entry.length < 4) return;
   if (entry === VAULT) {
-    vaultBusy = true; running = false; finalSecs = Math.round(elapsed()); clearInterval(ticking); $('clock').textContent = fmt(finalSecs);
+    vaultBusy = true; running = false; liveDone(); finalSecs = Math.round(elapsed()); clearInterval(ticking); $('clock').textContent = fmt(finalSecs);
     $('door').classList.add('open'); $('m5').className = 'msg good'; $('m5').textContent = 'VAULT OPEN'; chime(); setTimeout(chime, 400);
     setTimeout(() => { vaultBusy = false; finish(); }, reduce ? 300 : 1600);
   } else { addPen(10, 'wrong code'); $('m5').className = 'msg bad'; $('m5').textContent = 'WRONG CODE. Enter the digits in the order you collected them.'; bad($('slots')); entry = ''; setTimeout(renderSlots, 300); }
@@ -207,7 +232,7 @@ async function finish() {
   $('finalTime').textContent = fmt(finalSecs);
   $('finalBreak').textContent = penalty > 0 ? 'Includes ' + Math.round(penalty) + 's of penalties.' : 'No penalties. Clean run.';
   $('combo').textContent = VAULT.split('').join('-');
-  posted = false; $('saveMsg').textContent = ''; $('nameIn').value = ''; $('saveBtn').disabled = false;
+  posted = false; $('saveMsg').textContent = ''; $('nameIn').value = liveName; $('saveBtn').disabled = false;
   const db = await dbReady;
   $('saveDirect').hidden = !db; $('saveOff').hidden = !!db;
   armIdle();
@@ -239,7 +264,7 @@ function resetStages() {
   [1, 2, 3].forEach(n => { $('h' + n).hidden = true; document.querySelector('[data-hint="' + n + '"]').disabled = false; });
   buildLog(); mi = 0; entry = ''; renderSlots(); $('door').classList.remove('open');
 }
-function reset() { running = false; clearInterval(ticking); stage = 0; $('hud').hidden = true; $('clock').textContent = '0:00'; resetStages(); show('intro'); }
+function reset() { liveStop(); if (KIOSK) $('codeIn').value = ''; running = false; clearInterval(ticking); stage = 0; $('hud').hidden = true; $('clock').textContent = '0:00'; resetStages(); show('intro'); }
 $('againBtn').addEventListener('click', reset);
 let idle = null;
 function armIdle() { if (!KIOSK) return; clearTimeout(idle); if (stage > 0) idle = setTimeout(reset, stage === 6 ? 60000 : 180000); }

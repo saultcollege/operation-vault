@@ -5,6 +5,21 @@ const KIOSK = new URLSearchParams(location.search).has('kiosk');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
 const cleanName = s => (s || '').replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 16);
+
+// Names containing any of these (after undoing common tricks like 0→o, 1→i,
+// 3→e, 4/@→a, 5/$→s and removing spaces or symbols) are refused.
+// Add words to this list to block them too.
+const BLOCKED = ['fuck', 'shit', 'bitch', 'cunt', 'nigg', 'fag', 'dick', 'cock', 'pussy', 'whore', 'slut', 'rape', 'nazi', 'hitler', 'retard', 'asshole', 'bastard', 'penis', 'vagina', 'porn', 'twat', 'wank', 'kkk', 'jizz', 'tits', 'boob', 'piss', 'sex'];
+// Real names and words that contain a blocked word by accident.
+const ALLOWED = ['dickson', 'dickens', 'dickinson', 'benedict', 'hancock', 'peacock', 'babcock', 'hitchcock', 'cockburn', 'woodcock', 'alcock', 'fagan', 'grape', 'drape', 'scrape', 'trapeze', 'essex', 'sussex', 'middlesex', 'sexton'];
+function isAppropriate(name) {
+  let flat = name.toLowerCase()
+    .replace(/0/g, 'o').replace(/[1!|]/g, 'i').replace(/3/g, 'e')
+    .replace(/[4@]/g, 'a').replace(/[5$]/g, 's').replace(/7/g, 't')
+    .replace(/[^a-z]/g, '');
+  ALLOWED.forEach(w => { flat = flat.split(w).join(''); });
+  return !BLOCKED.some(w => flat.includes(w));
+}
 const dbReady = initDb();
 
 /* ---------- audio ---------- */
@@ -170,6 +185,7 @@ $('saveBtn').addEventListener('click', async () => {
   const name = cleanName($('nameIn').value);
   const m = $('saveMsg');
   if (!name) { m.className = 'msg bad'; m.textContent = 'Type a name first.'; return; }
+  if (!isAppropriate(name)) { m.className = 'msg bad'; m.textContent = 'That name can’t go on the big screen. Please pick another.'; return; }
   $('saveBtn').disabled = true; m.className = 'msg info'; m.textContent = 'Posting…';
   const secs = Math.max(25, Math.min(3600, finalSecs));
   try {

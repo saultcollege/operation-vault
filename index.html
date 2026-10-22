@@ -14,7 +14,7 @@
 <body>
 <main id="play">
   <div class="hud" id="hud" hidden>
-    <span class="op">OP: VAULT</span>
+    <span class="op" id="hudName">OP: VAULT</span>
     <div class="pips" aria-label="Progress">
       <span class="pip" data-p="1">1</span><span class="pip" data-p="2">2</span><span class="pip" data-p="3">3</span><span class="pip" data-p="4">4</span><span class="pip" data-p="5" aria-label="Vault">V</span>
     </div>
@@ -35,6 +35,9 @@
         <span><span class="g">V&nbsp;</span> Crack the vault</span>
       </div>
       <p style="margin:0;font-size:14px;color:var(--muted)">Hints cost 30 seconds. Wrong answers cost 10. Fastest time today tops the leaderboard.</p>
+      <div><label class="l" for="codeIn">Your hacker name (shows on the big screen)</label>
+        <input class="inp" id="codeIn" maxlength="16" autocomplete="off" placeholder="Leave blank for a codename" style="width:100%"></div>
+      <div class="msg" id="m0" role="status" hidden></div>
       <button type="button" class="btn" id="startBtn">Start the clock →</button>
     </div>
     <p class="foot">Sault College · Computer Networking &amp; Cyber Security. All people, companies and messages in this game are made up.</p>

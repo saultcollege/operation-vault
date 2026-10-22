@@ -25,5 +25,22 @@ service cloud.firestore {
       allow delete: if request.auth != null
         && request.auth.uid in ['9yyN9Gz04Nfn8vTJjiT5V49K78z1'];
     }
+
+    // Live intruder map: where each player is right now. Each doc is
+    // temporary, so players can create, move and remove their own dot.
+    match /live/{playerId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly(['name', 'stage', 'day', 'at'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1
+        && request.resource.data.name.size() <= 16
+        && request.resource.data.stage is int
+        && request.resource.data.stage >= 1
+        && request.resource.data.stage <= 6
+        && request.resource.data.day is string
+        && request.resource.data.day.size() == 10
+        && request.resource.data.at == request.time;
+      allow delete: if true;
+    }
   }
 }

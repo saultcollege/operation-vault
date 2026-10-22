@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Operation Vault</title>
+<meta name="description" content="Can you break in? A timed hacking mission from the Sault College Computer Networking & Cyber Security program.">
+<meta name="theme-color" content="#0A0E0B">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+</head>
+<body>
+<main id="play">
+  <div class="hud" id="hud" hidden>
+    <span class="op">OP: VAULT</span>
+    <div class="pips" aria-label="Progress">
+      <span class="pip" data-p="1">1</span><span class="pip" data-p="2">2</span><span class="pip" data-p="3">3</span><span class="pip" data-p="4">4</span><span class="pip" data-p="5" aria-label="Vault">V</span>
+    </div>
+    <span><span class="clock" id="clock">0:00</span><span class="pen" id="pen"></span></span>
+  </div>
+
+  <!-- intro -->
+  <section class="screen" data-s="intro">
+    <p class="kicker">● Incoming job // Sault College Cyber Security</p>
+    <h1><span class="g">Operation</span><br>Vault</h1>
+    <p class="brief">Lakehead Logistics (a made-up company) hired you to test their security. Get past four defences, collect four digits, and crack the vault. The clock is running.</p>
+    <div class="card stack">
+      <div class="mono" style="font-size:14px;color:var(--soft);display:grid;gap:6px">
+        <span><span class="g">01</span> Decrypt an intercepted note</span>
+        <span><span class="g">02</span> Guess a password from social media</span>
+        <span><span class="g">03</span> Find the intruder in the server log</span>
+        <span><span class="g">04</span> Spot the phishing messages</span>
+        <span><span class="g">V&nbsp;</span> Crack the vault</span>
+      </div>
+      <p style="margin:0;font-size:14px;color:var(--muted)">Hints cost 30 seconds. Wrong answers cost 10. Fastest time today tops the leaderboard.</p>
+      <button type="button" class="btn" id="startBtn">Start the clock →</button>
+    </div>
+    <p class="foot">Sault College · Computer Networking &amp; Cyber Security. All people, companies and messages in this game are made up.</p>
+  </section>
+
+  <!-- stage 1: cipher -->
+  <section class="screen" data-s="s1" hidden>
+    <p class="kicker">Defence 01 // Encrypted note</p>
+    <h2>Crack the cipher</h2>
+    <p class="brief">We intercepted this note. It's a Caesar cipher: every letter is shifted the same number of places along the alphabet. Turn the dial until it reads as English.</p>
+    <div class="card stack">
+      <div class="cipher" id="cipherText" aria-live="polite"></div>
+      <div class="dial">
+        <button type="button" class="btn ghost small" id="shDown" aria-label="Shift down">−</button>
+        <input type="range" id="shift" min="0" max="25" value="0" aria-label="Shift amount">
+        <button type="button" class="btn ghost small" id="shUp" aria-label="Shift up">+</button>
+        <span class="val" id="shiftVal">0</span>
+      </div>
+    </div>
+    <div class="stack" style="margin-top:16px">
+      <div><label class="l" for="a1">What's the first vault digit?</label>
+        <div class="field"><input id="a1" inputmode="numeric" autocomplete="off" placeholder="0–9"><button type="button" class="btn" data-submit="1">Submit</button></div></div>
+      <div class="msg" id="m1" role="status"></div>
+      <div class="row"><button type="button" class="btn hint small" data-hint="1">Hint (+30s)</button></div>
+      <div class="hintbox" id="h1" hidden>Try a shift around 7. You'll know it when real words appear.</div>
+    </div>
+  </section>
+
+  <!-- stage 2: OSINT -->
+  <section class="screen" data-s="s2" hidden>
+    <p class="kicker">Defence 02 // Staff login</p>
+    <h2>Guess the password</h2>
+    <p class="brief">Jordan runs operations at Lakehead Logistics. People often build passwords from things they post online. Read Jordan's profile, then log in as Jordan.</p>
+    <div class="prof" aria-label="Jordan's social profile">
+      <div class="cover"></div>
+      <div class="who"><div class="av" aria-hidden="true">JR</div><div style="padding-bottom:4px"><div class="nm">Jordan Reyes</div><div class="sub2">Ops Manager at Lakehead Logistics · Sault Ste. Marie</div></div></div>
+      <div class="post" style="margin-top:12px"><div class="meta">2 days ago</div>Biscuit turned 6 today. Best dog in the Soo.</div>
+      <div class="post"><div class="meta">Last week</div>Reminder to self: work password expires Friday. Ugh, again??</div>
+      <div class="post"><div class="meta">March</div>Throwback to the day we brought Biscuit home in 2019. Look at those ears!</div>
+      <div class="post"><div class="meta">January</div>Go Greyhounds! Poutine after the game, obviously.</div>
+    </div>
+    <div class="login stack" style="margin-top:16px">
+      <div class="bar">LAKEHEAD LOGISTICS · STAFF PORTAL</div>
+      <div><label class="l" for="u2">Username</label><input class="inp" id="u2" value="jreyes" readonly style="width:100%"></div>
+      <div><label class="l" for="a2">Password</label>
+        <div class="field"><input id="a2" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" class="btn" data-submit="2">Log in</button></div></div>
+      <div class="msg" id="m2" role="status"></div>
+    </div>
+    <div class="stack" style="margin-top:12px">
+      <div class="row"><button type="button" class="btn hint small" data-hint="2">Hint (+30s)</button></div>
+      <div class="hintbox" id="h2" hidden>Jordan's passwords always follow the same pattern: pet's name + the year the pet came home.</div>
+    </div>
+  </section>
+
+  <!-- stage 3: log -->
+  <section class="screen" data-s="s3" hidden>
+    <p class="kicker">Defence 03 // Server log</p>
+    <h2>Find the intruder</h2>
+    <p class="brief">Someone got into the server last night. Tap the exact log line where the attacker got in.</p>
+    <div class="log" id="logList"></div>
+    <div class="stack" style="margin-top:14px">
+      <div class="msg" id="m3" role="status"></div>
+      <div class="row"><button type="button" class="btn hint small" data-hint="3">Hint (+30s)</button></div>
+      <div class="hintbox" id="h3" hidden>Look for one outside address with a burst of failed logins, then a success.</div>
+    </div>
+  </section>
+
+  <!-- stage 4: phish -->
+  <section class="screen" data-s="s4" hidden>
+    <p class="kicker">Defence 04 // Inbox</p>
+    <h2>Phish or legit?</h2>
+    <p class="brief">Three messages just landed in Jordan's inbox. Call each one.</p>
+    <div class="stack">
+      <div class="prog" id="p4">Message 1 of 3</div>
+      <div class="mail" id="mail"></div>
+      <div class="pick"><button type="button" class="btn ph" data-ph="1">Phishing</button><button type="button" class="btn ok" data-ph="0">Legit</button></div>
+      <div class="msg" id="m4" role="status"></div>
+    </div>
+  </section>
+
+  <!-- reward (shared) -->
+  <section class="screen" data-s="reward" hidden>
+    <p class="kicker" id="rwKick">Defence cleared</p>
+    <h2 id="rwTitle">Access granted</h2>
+    <p class="brief" id="rwText"></p>
+    <div class="reward"><span class="lbl" id="rwLbl">VAULT DIGIT 1</span><span class="dig" id="rwDig">0</span></div>
+    <div style="margin-top:16px"><button type="button" class="btn" id="rwNext">Next defence →</button></div>
+  </section>
+
+  <!-- vault -->
+  <section class="screen" data-s="vault" hidden>
+    <p class="kicker">Final step // The vault</p>
+    <h2>Crack the vault</h2>
+    <div class="vault-door" id="door" aria-hidden="true"></div>
+    <div class="stack" style="margin-top:16px">
+      <div class="collected">DIGITS COLLECTED: <b id="collected"></b></div>
+      <div class="slots" id="slots"><span class="slot"></span><span class="slot"></span><span class="slot"></span><span class="slot"></span></div>
+      <div class="keypad" id="keypad"></div>
+      <div class="msg" id="m5" role="status" style="text-align:center"></div>
+    </div>
+  </section>
+
+  <!-- done -->
+  <section class="screen" data-s="done" hidden>
+    <p class="kicker" style="color:var(--red)">● Breach successful</p>
+    <h2>You're in.</h2>
+    <div class="big-time" id="finalTime">0:00</div>
+    <p class="brief" id="finalBreak" style="margin-top:4px"></p>
+    <div class="lock-callout stack">
+      <div class="mono" style="font-size:13px;letter-spacing:.1em;color:var(--amber)">NOW OPEN THE REAL VAULT AT THE BOOTH</div>
+      <div class="combo" id="combo">0000</div>
+      <div style="font-size:14px;color:var(--soft)">Dial this into the padlock on the box. Prize inside.</div>
+    </div>
+
+    <div class="stack" id="saveDirect" hidden style="margin-top:20px">
+      <label class="l" for="nameIn">Put your name on the leaderboard</label>
+      <div class="field"><input id="nameIn" maxlength="16" autocomplete="off" placeholder="Your name or handle"><button type="button" class="btn" id="saveBtn">Post</button></div>
+      <div class="msg" id="saveMsg" role="status"></div>
+    </div>
+
+    <p class="msg info" id="saveOff" hidden style="margin-top:16px">The leaderboard isn’t connected right now, but your time still counts. Show this screen at the booth.</p>
+
+    <div class="card stack" style="margin-top:20px">
+      <div style="font-weight:700">Want to do this for real?</div>
+      <div style="color:var(--soft);font-size:15px">Computer Networking &amp; Cyber Security · 2-Year Ontario College Diploma at Sault College.</div>
+      <a class="btn ghost" href="https://www.saultcollege.ca/programs/information-technology-studies/computer-networking-and-cyber-security" target="_blank" rel="noopener">See the program →</a>
+    </div>
+    <div style="margin-top:16px"><button type="button" class="btn ghost" id="againBtn">Play again</button></div>
+  </section>
+</main>
+<script type="module" src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Operation Vault Leaderboard</title>
+<meta name="description" content="Can you break in? A timed hacking mission from the Sault College Computer Networking & Cyber Security program.">
+<meta name="theme-color" content="#0A0E0B">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="qrcode.js"></script>
+<script src="config.js"></script>
+</head>
+<body>
+<div id="board">
+  <div class="b-top">
+    <span><span class="dot" aria-hidden="true"></span>OPERATION: VAULT // LIVE FROM THE SAULT COLLEGE CYBER SECURITY BOOTH</span>
+    <div class="b-ctrl">
+      <button type="button" class="btn ghost" id="soundBtn" aria-pressed="false">Sound off</button>
+      <button type="button" class="btn ghost" id="fsBtn">Full screen</button>
+      <button type="button" class="btn ghost" id="manageBtn" aria-pressed="false" hidden>Manage</button>
+      <button type="button" class="btn ghost" id="testBtn">Test alarm</button>
+      <button type="button" class="btn ghost" id="staffBtn">Staff sign-in</button>
+    </div>
+  </div>
+  <div class="b-main">
+    <div class="b-left">
+      <h1 class="b-title"><span class="g">Today's</span> top hackers</h1>
+      <ol class="board-list" id="boardList"></ol>
+      <div class="empty" id="boardEmpty">No breaches yet today. Be the first name up here.</div>
+      <div class="b-note" id="boardNote" hidden></div>
+    </div>
+    <div class="b-right">
+      <div class="b-cta">Can you<br><span class="g">break in?</span></div>
+      <div class="b-qr">
+        <div id="qr" role="img" aria-label="QR code to play Operation Vault"></div>
+        <div class="steps">
+          <span><b>1.</b> Scan to play on your phone</span>
+          <span><b>2.</b> Beat four defences against the clock</span>
+          <span><b>3.</b> Open the real vault for a prize</span>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">BREACHES TODAY</div><div class="v" id="stCount">0</div></div>
+        <div class="stat"><div class="k">FASTEST TIME</div><div class="v" id="stBest">—</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="ticker" aria-hidden="true"><div class="track" id="ticker"></div></div>
+</div>
+
+<div id="celebrate" hidden role="alert">
+  <canvas id="rain"></canvas>
+  <div class="z t1">⚠ INTRUSION ALERT ⚠</div>
+  <div class="z t2">Breach successful</div>
+  <div class="z t3" id="cName"></div>
+  <div class="z t4" id="cInfo"></div>
+</div>
+
+<div id="staffPanel" hidden>
+  <form id="staffForm" class="stack">
+    <div class="kicker">Booth staff</div>
+    <div><label class="l" for="stEmail">Email</label><input class="inp" id="stEmail" type="email" autocomplete="username" style="width:100%"></div>
+    <div><label class="l" for="stPw">Password</label><input class="inp" id="stPw" type="password" autocomplete="current-password" style="width:100%"></div>
+    <div class="row"><button type="submit" class="btn">Sign in</button><button type="button" class="btn ghost" id="stCancel">Cancel</button></div>
+    <div class="msg" id="stMsg" role="status"></div>
+  </form>
+</div>
+
+<script type="module" src="board.js"></script>
+</body>
+</html>

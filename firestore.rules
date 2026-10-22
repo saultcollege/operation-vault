@@ -23,7 +23,7 @@ service cloud.firestore {
       // Only booth staff can remove entries. Paste your staff account's
       // User UID below (README, step 4).
       allow delete: if request.auth != null
-        && request.auth.uid in ['PASTE_STAFF_UID'];
+        && request.auth.uid in ['9yyN9Gz04Nfn8vTJjiT5V49K78z1'];
     }
   }
 }

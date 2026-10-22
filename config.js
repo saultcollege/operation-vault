@@ -10,12 +10,12 @@ window.OV_CONFIG = {
   // Paste your Firebase web app config here (see README, step 2).
   // While apiKey still says PASTE_..., the game runs without a leaderboard.
   firebase: {
-    apiKey: 'PASTE_API_KEY',
-    authDomain: 'PASTE_PROJECT_ID.firebaseapp.com',
-    projectId: 'PASTE_PROJECT_ID',
-    storageBucket: 'PASTE_PROJECT_ID.appspot.com',
-    messagingSenderId: 'PASTE_SENDER_ID',
-    appId: 'PASTE_APP_ID'
+   apiKey: "AIzaSyCB8qz9ejviOx4tXY03OzP4W0hpOavaMUU",
+  authDomain: "operation-vault.firebaseapp.com",
+  projectId: "operation-vault",
+  storageBucket: "operation-vault.firebasestorage.app",
+  messagingSenderId: "18731280819",
+  appId: "1:18731280819:web:957e2f1ee168b4376503c6"
   },
 
   // Optional: the address the big-screen QR code should open.

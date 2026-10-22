@@ -91,11 +91,44 @@ function pickLog(i, b) {
 }
 
 /* ---------- stage 4: phish ---------- */
-const MAIL = [
+// Question bank. Each game picks MAIL_PER_GAME messages at random, always
+// with at least one phish and one legit. Add or edit entries freely.
+// Lakehead Logistics' real domain is lakeheadlogistics.ca. All names,
+// companies, numbers and sites here are made up.
+const MAIL_PER_GAME = 3;
+const MAIL_BANK = [
+  // ----- phishing -----
   { ph: true, from: 'SMS · +1 (705) 555-0142', body: 'Lakehead Credit Union: your account is LOCKED. Verify within 1 hour: <span class="lk">lakehead-cu-secure.co/login</span>', why: 'Urgent lock-out plus a link to a look-alike domain.' },
+  { ph: true, from: 'Dana Morgan, CEO <dana.lakehead.ceo@outlook.com>', body: 'Need you to wire $4,800 to a new vendor today. I’m in meetings, keep this between us. Bank details attached.', why: 'A "CEO" on a personal account, secrecy and a money transfer.' },
+  { ph: true, from: 'IT Support <it-support@lakeheadlogistlcs.ca>', body: 'Your password expires today. Keep your current password here to avoid losing access: <span class="lk">lakeheadlogistlcs.ca/keep-password</span>', why: 'Look closely: "logistlcs" uses an L instead of an i. Real IT never asks you to type your password into a link.' },
+  { ph: true, from: 'SMS · +1 (249) 555-0198', body: 'NorthPost: your parcel is on hold due to an unpaid $1.99 customs fee. Pay now: <span class="lk">northpost-redelivery.info</span>', why: 'A tiny fee is bait to steal card numbers, and the link isn’t the courier’s site.' },
+  { ph: true, from: 'Payroll <payroll@lakeheadlogistics.ca.hr-portal.net>', body: 'Your pay stub is ready. Sign in to view it before Friday: <span class="lk">lakeheadlogistics.ca.hr-portal.net</span>', why: 'The real domain is the last part before the first slash: hr-portal.net, not lakeheadlogistics.ca.' },
+  { ph: true, from: 'Canada Benefits Office <refunds@cra-refund-online.com>', body: 'You are owed a tax refund of $612.40. Click to accept by Interac e-Transfer within 24 hours: <span class="lk">cra-refund-online.com/claim</span>', why: 'Government agencies don’t send refunds through an email link, and the deadline is there to rush you.' },
+  { ph: true, from: 'Jordan Reyes <jordan.reyes.work@gmail.com>', body: 'Hey, I lost my phone. Can you text me the 6-digit code you’re about to receive? I need it to get back into my account.', why: 'Nobody legit asks for your MFA or verification code. That code is the key to your account.' },
+  { ph: true, from: 'StreamBox <billing@streambox-accounts.support>', body: 'Your payment failed and your account will be closed today. Update your card: <span class="lk">streambox-accounts.support/update</span>', why: 'Threat of closing your account, plus a link to a strange domain asking for card details.' },
+  { ph: true, from: 'Shared Files <no-reply@docshare-secure.net>', body: 'Mike Chen shared "Q4 Salaries - CONFIDENTIAL.xlsx" with you. Sign in with your work email and password to open it.', why: 'A juicy file name to make you curious, and a login page outside the company.' },
+  { ph: true, from: 'Help Desk <helpdesk@lakeheadlogistics.ca>', body: 'Hi, this is Sam from IT. We’re upgrading your laptop tonight. Reply with your username and password so we can set it up.', why: 'Even from a real address (accounts get hacked), no IT team ever needs your password.' },
+  { ph: true, from: 'SMS · +1 (705) 555-0177', body: 'Congrats! You’ve been selected for a $500 Gift Card from SooMart. Claim before midnight: <span class="lk">soomart-winner.club</span>', why: 'A prize you never entered for, a deadline and an odd link.' },
+  { ph: true, from: 'Accounts Payable <ap@lakehead-logistics.ca>', body: 'Our banking details have changed. Please send all future invoice payments to the new account below, effective today.', why: 'Note the extra hyphen: lakehead-logistics.ca isn’t the real domain. Changed bank details should always be confirmed by phone.' },
+
+  // ----- legit -----
   { ph: false, from: 'Facilities <facilities@lakeheadlogistics.ca>', body: 'Heads up: fire drill Thursday at 10 a.m. Please use the east stairwell. No action needed.', why: 'Real company domain, no link, nothing asked of you.' },
-  { ph: true, from: 'Dana Morgan, CEO <dana.lakehead.ceo@outlook.com>', body: 'Need you to wire $4,800 to a new vendor today. I’m in meetings, keep this between us. Bank details attached.', why: 'A "CEO" on a personal account, secrecy and a money transfer.' }
+  { ph: false, from: 'HR <hr@lakeheadlogistics.ca>', body: 'Benefits enrolment opens Monday. Sign in to the HR portal from the intranet as usual. There’s no link in this email on purpose.', why: 'Real domain, and it tells you to go to the site the way you normally do instead of clicking.' },
+  { ph: false, from: 'IT Support <it@lakeheadlogistics.ca>', body: 'Your verification code is 482193. Lakehead Logistics will never ask you for this code. If you didn’t request it, tell IT.', why: 'A code you asked for, with a warning not to share it. Just don’t give the code to anyone.' },
+  { ph: false, from: 'Your bank (in-app notification)', body: 'New sign-in on a new device near Sault Ste. Marie, ON at 9:14 a.m. If this wasn’t you, open the app and choose Security › Sign out everywhere.', why: 'No link, nothing to type in, and it tells you to use the app yourself.' },
+  { ph: false, from: 'Mike Chen <mchen@lakeheadlogistics.ca>', body: 'Thanks for covering my shift Friday! Coffee’s on me next week.', why: 'A coworker on the real domain, nothing asked of you, no links or attachments.' },
+  { ph: false, from: 'Library <library@saultcollege.ca>', body: 'Reminder: Network+ Guide to Networks is due back on Friday. Renew it by signing in to your library account the usual way.', why: 'Real college domain, no link, no pressure, no request for a password.' },
+  { ph: false, from: 'Reception <reception@lakeheadlogistics.ca>', body: 'Your visitor (Pat from NorthPost) has arrived at the front desk.', why: 'A simple notice from the real domain that asks you to do nothing risky.' },
+  { ph: false, from: 'Payroll <payroll@lakeheadlogistics.ca>', body: 'Reminder: T4 slips will be available in the payroll system by the end of February. Questions? Call payroll at extension 2210.', why: 'Real domain, no link, and it offers a phone number you already know to check.' }
 ];
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function pickMail() {
+  const ph = shuffle(MAIL_BANK.filter(m => m.ph)), ok = shuffle(MAIL_BANK.filter(m => !m.ph));
+  const pick = [ph[0], ok[0]];
+  shuffle(ph.slice(1).concat(ok.slice(1))).slice(0, MAIL_PER_GAME - 2).forEach(m => pick.push(m));
+  return shuffle(pick);
+}
+let MAIL = pickMail();
 let mi = 0, mailLock = false;
 function renderMail() { const m = MAIL[mi]; $('p4').textContent = 'Message ' + (mi + 1) + ' of ' + MAIL.length; const box = $('mail'); box.textContent = ''; const f = document.createElement('div'); f.className = 'from'; f.textContent = 'From: ' + m.from; const b = document.createElement('div'); b.innerHTML = m.body; box.append(f, b); }
 document.querySelectorAll('[data-ph]').forEach(btn => btn.addEventListener('click', () => {
@@ -143,7 +176,7 @@ function reward(n) {
 $('rwNext').addEventListener('click', () => {
   if (stage === 2) { show('s2'); $('a2').focus(); }
   else if (stage === 3) show('s3');
-  else if (stage === 4) { mi = 0; renderMail(); $('m4').textContent = ''; show('s4'); }
+  else if (stage === 4) { MAIL = pickMail(); mi = 0; renderMail(); $('m4').textContent = ''; show('s4'); }
   else if (stage === 5) { entry = ''; renderSlots(); $('collected').textContent = VAULT.split('').join(' '); show('vault'); }
 });
 

@@ -8,12 +8,20 @@ service cloud.firestore {
         && request.auth.uid in ['9yyN9Gz04Nfn8vTJjiT5V49K78z1'];
     }
 
+    // School battle: an optional school name on runs, map dots and sign-ups.
+    function validSchool(d) {
+      return !('school' in d) || (d.school is string && d.school.size() >= 1 && d.school.size() <= 40);
+    }
+
     match /runs/{runId} {
       // Anyone can see the leaderboard.
       allow read: if true;
 
       // Anyone can post a finished run, but only in this exact shape.
-      allow create: if request.resource.data.keys().hasOnly(['name', 'secs', 'day', 'at'])
+      allow create: if request.resource.data.keys().hasOnly(['name', 'secs', 'day', 'school', 'bonus', 'at'])
+        && request.resource.data.keys().hasAll(['name', 'secs', 'day', 'at'])
+        && validSchool(request.resource.data)
+        && (!('bonus' in request.resource.data) || request.resource.data.bonus == true)
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 1
         && request.resource.data.name.size() <= 16
@@ -24,8 +32,10 @@ service cloud.firestore {
         && request.resource.data.day.size() == 10
         && request.resource.data.at == request.time;
 
-      // Nobody edits a posted time.
-      allow update: if false;
+      // Nobody edits a posted time. The only change allowed is adding the
+      // bonus-round star.
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bonus'])
+        && request.resource.data.bonus == true;
 
       // Only booth staff can remove entries.
       allow delete: if isStaff();
@@ -35,7 +45,9 @@ service cloud.firestore {
     // temporary, so players can create, move and remove their own dot.
     match /live/{playerId} {
       allow read: if true;
-      allow create, update: if request.resource.data.keys().hasOnly(['name', 'stage', 'day', 'at'])
+      allow create, update: if request.resource.data.keys().hasOnly(['name', 'stage', 'day', 'school', 'at'])
+        && request.resource.data.keys().hasAll(['name', 'stage', 'day', 'at'])
+        && validSchool(request.resource.data)
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 1
         && request.resource.data.name.size() <= 16
@@ -51,7 +63,8 @@ service cloud.firestore {
     // "Send me program info" opt-ins. Visitors can add one but never read
     // any back. Only staff can read (export) or delete them.
     match /leads/{leadId} {
-      allow create: if request.resource.data.keys().hasOnly(['name', 'contact', 'kind', 'who', 'event', 'day', 'consent', 'at'])
+      allow create: if request.resource.data.keys().hasOnly(['name', 'contact', 'kind', 'who', 'school', 'event', 'day', 'consent', 'at'])
+        && validSchool(request.resource.data)
         && request.resource.data.keys().hasAll(['name', 'contact', 'kind', 'event', 'day', 'consent', 'at'])
         && request.resource.data.name is string
         && request.resource.data.name.size() >= 1

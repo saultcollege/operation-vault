@@ -65,6 +65,18 @@ The big-screen QR code points to your site automatically. If you use a custom do
 
 **Intruder map:** players type a hacker name before they start (blank gets a codename like `VIPER-42`). Their dot moves along Firewall → Staff login → Server → Inbox → Vault as they clear each defence, and the alert feed calls out each step. A dot disappears 25 seconds after its player opens the vault, when they press **Play again**, or 2 minutes after their phone goes quiet.
 
+**School battle:** players pick their school on the start screen (the list is `schools:` in config.js; "Just visiting" is always there). Each school gets its own colour on the map, the leaderboard and the celebration. The big screen ranks schools by the **average of their 5 best times**, so a bigger group can't win on numbers alone; schools with fewer than 5 finishers show "n/5 to qualify" below the rest. The alert feed calls out every lead change.
+
+**Beat the instructor:** play a run yourself and put your name and time in `instructor:` in config.js, e.g. `{ name: 'Mr. Laitinen', time: '2:41' }`. A dashed "line to beat" appears in the leaderboard, and anyone faster gets a badge and a mention on the big screen.
+
+**Ranks and badges:** every finish gets a rank (Script Kiddie up to Red Team Lead) and badges such as Flawless, Phish spotter, Under 1:00, On a roll and Hash cracker. They show on the win screen and the poster.
+
+**New puzzles every game:** the cipher note and key, the person whose password you guess (four to choose from), and the server log all change each game, and the inbox picks 3 of 20 messages. Students can't pass answers down the line. In the inbox, spotting a phish unlocks a 6-second bonus: tap the exact red flag (a fake domain, a request for a code) for 5 seconds off.
+
+**Bonus round:** after winning, players can try "Crack the hash", a dictionary attack against a stolen SHA-256 hash with its own timer. Cracking it adds a ★ next to their name on the board.
+
+**Booth PCs:** open `.../index.html?kiosk` on shared computers. It resets itself when idle, forgets the school pick between players and hides the poster (so selfies don't stay on the PC).
+
 **Wanted poster:** winners can tap **Make my poster** for a mugshot-style WANTED poster with their name and time, plus a QR code to the program page. They can add a selfie or a photo from their gallery, then share or download it. A ready-made caption with the program link is there to copy. Everything is drawn on their phone and photos are never uploaded. The poster is hidden on the booth tablet (`?kiosk`) so selfies don't pile up on a shared device.
 
 **Program info sign-ups:** the win screen has an unticked "Send me program info" box. Ticking it asks for a first name, an email or mobile number, and an optional "I am…". Before each event, set `event:` in config.js (e.g. `'Fall Open House 2026'`) so recruitment can tell events apart.
@@ -78,6 +90,7 @@ The big-screen QR code points to your site automatically. If you use a custom do
 ## Good to know
 
 - The game still works if Firebase isn't set up or the Wi-Fi drops. Players just can't post a time or show up on the map.
+- **Before a school visit:** publish the latest **firestore.rules**, set `event:` (e.g. `'High School Visit Oct 2026'`) and your `instructor:` time in config.js, then play one test game on a phone and watch it appear on the board.
 - **Updating from an older version?** Each new feature needs the latest rules. Paste **firestore.rules** into **Firestore → Rules** (keep your staff UID in it) and click **Publish**. Without that, sign-ups fail with "Couldn’t send that".
 - **Privacy:** sign-ups are personal information. Before the first event, have the college's privacy office check the wording on the win screen and how long you'll keep the exports. To clear old sign-ups, delete them in **Firestore → Data → leads**.
 - **Live map:** Paste the new **firestore.rules** into **Firestore → Rules** (keep your staff UID in it) and click **Publish**. Without that, the intruder map stays empty and the board says so.

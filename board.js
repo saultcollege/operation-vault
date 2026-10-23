@@ -1,4 +1,4 @@
-import { initDb, dayKey, fmt } from './db.js?v=20261023b';
+import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261023c';
 
 const $ = id => document.getElementById(id);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -44,16 +44,34 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 /* ---------- leaderboard ---------- */
 let rows = [], manage = false, staff = false, db = null;
+const CFG = window.OV_CONFIG || {};
+const INSTR = (() => { const i = CFG.instructor || {}, m = String(i.time || '').match(/^(\d+):(\d\d)$/); return m ? { name: String(i.name || 'Instructor'), secs: +m[1] * 60 + +m[2] } : null; })();
 // The live-map warning sticks until reload, so leaderboard updates don't wipe it.
 let liveErr = '';
 function note(t) { t = t || liveErr; $('boardNote').hidden = !t; $('boardNote').textContent = t; }
 function render(freshIds = new Set()) {
   const list = $('boardList'); list.textContent = '';
   $('boardEmpty').hidden = rows.length > 0;
-  rows.slice(0, 10).forEach((r, i) => {
+  // The instructor's "line to beat" sits among the top 10 but takes no rank.
+  const top = rows.slice(0, 10), at = INSTR ? rows.filter(r => r.secs < INSTR.secs).length : -1;
+  if (INSTR) {
+    if (at >= 10) top.splice(9);
+    const li = document.createElement('li'); li.className = 'target';
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = '★';
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = 'Line to beat: ' + INSTR.name;
+    const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = fmt(INSTR.secs);
+    li.append(rk, nm, tm, document.createElement('span'));
+    top.splice(Math.min(at, top.length), 0, { target: li });
+  }
+  let n = 0;
+  top.forEach(r => {
+    if (r.target) { list.appendChild(r.target); return; }
+    const i = n++;
     const li = document.createElement('li'); if (freshIds.has(r.id)) li.classList.add('fresh');
+    if (r.school) { li.classList.add('has-sch'); li.style.setProperty('--sc', schoolColor(r.school)); }
     const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = '#' + (i + 1);
-    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name || 'Anonymous';
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = (r.name || 'Anonymous') + (r.bonus ? ' ★' : '');
+    if (r.school) { const sc = document.createElement('span'); sc.className = 'sch'; sc.textContent = r.school; nm.appendChild(sc); }
     const tm = document.createElement('span'); tm.className = 'tm'; tm.textContent = fmt(r.secs);
     const d = document.createElement('span');
     if (manage && staff) {
@@ -65,33 +83,59 @@ function render(freshIds = new Set()) {
   });
   $('stCount').textContent = rows.length;
   $('stBest').textContent = rows.length ? fmt(rows[0].secs) : '—';
+  drawBattle(freshIds.size > 0);
+}
+
+/* ---------- school battle ---------- */
+// Score = average of a school's 5 best times today, so a big group can't win
+// on numbers alone. Schools with fewer than 5 finishers sit below, marked.
+const TEAM_N = 5;
+let leader = null;
+function drawBattle(live) {
+  const by = new Map();
+  rows.forEach(r => { if (r.school) { if (!by.has(r.school)) by.set(r.school, []); by.get(r.school).push(r.secs); } });
+  const teams = [...by.entries()].map(([name, t]) => { const best = t.sort((a, b) => a - b).slice(0, TEAM_N); return { name, n: t.length, full: best.length >= TEAM_N, avg: best.reduce((a, b) => a + b, 0) / best.length }; })
+    .sort((a, b) => (b.full - a.full) || (a.avg - b.avg));
+  const list = $('battle'); list.textContent = ''; $('battleEmpty').hidden = teams.length > 0;
+  teams.forEach((t, i) => {
+    const li = document.createElement('li'); li.style.setProperty('--sc', schoolColor(t.name)); if (!t.full) li.classList.add('prov');
+    const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = i + 1;
+    const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = t.name;
+    const ct = document.createElement('span'); ct.className = 'ct'; ct.textContent = t.full ? t.n + ' hackers' : t.n + '/' + TEAM_N + ' to qualify';
+    const sc = document.createElement('span'); sc.className = 'sc'; sc.textContent = fmt(t.avg);
+    li.append(rk, nm, ct, sc); list.appendChild(li);
+  });
+  const now = teams[0] ? teams[0].name : null;
+  if (live && now && now !== leader) pushAlert('c', now + ' takes the lead in the school battle!', true);
+  leader = now;
 }
 
 /* ---------- live intruder map ---------- */
 // Players at stage 1–5 sit at that node; stage 6 means they opened the vault.
 // A dot disappears when its phone stops checking in (STALE), or soon after the vault opens.
-const STALE = 120000, VAULT_SHOW = 25000, MAXC = 4;
+const STALE = 120000, VAULT_SHOW = 25000, MAXC = 3;
 const ALERT = {
   1: ['w', n => 'New intruder ' + n + ' is probing the firewall'],
   2: ['w', n => n + ' cracked the cipher and slipped past the firewall'],
-  3: ['h', n => n + ' cracked Jordan’s account'],
+  3: ['h', n => n + ' cracked a staff password'],
   4: ['h', n => n + ' traced the break-in in the server logs'],
-  5: ['c', n => n + ' cleared Jordan’s inbox and is heading for the vault'],
+  5: ['c', n => n + ' beat the phishing test and is heading for the vault'],
   6: ['c', n => n + ' OPENED THE VAULT']
 };
 const live = new Map(), demo = new Map(), chips = new Map(), seenStage = new Map();
-function addAlert(stageN, name) {
-  const [sev, txt] = ALERT[stageN]; const li = document.createElement('li'); li.className = 'new';
+function addAlert(stageN, name, school) { const [sev, txt] = ALERT[stageN]; pushAlert(sev, txt((name || 'Anonymous') + (school ? ' (' + school + ')' : '')), stageN >= 5); }
+function pushAlert(sev, text, hi) {
+  const li = document.createElement('li'); li.className = 'new';
   const tm = document.createElement('span'); tm.className = 'at'; tm.textContent = new Date().toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   const sv = document.createElement('span'); sv.className = 'sv ' + sev; sv.textContent = SEV[sev];
-  const tx = document.createElement('span'); tx.textContent = txt(name || 'Anonymous');
+  const tx = document.createElement('span'); tx.textContent = text;
   li.append(tm, sv, tx); $('alerts').prepend(li);
   while ($('alerts').children.length > 6) $('alerts').lastChild.remove();
-  if (soundOn) blip(stageN >= 5);
+  if (soundOn) blip(hi);
 }
 function track(row, initial) {
   const prev = seenStage.get(row.id) || 0;
-  if (!initial && row.stage > prev) addAlert(row.stage, row.name);
+  if (!initial && row.stage > prev) addAlert(row.stage, row.name, row.school);
   if (initial) row.movedAt = row.at; else if (row.stage !== prev) row.movedAt = Date.now(); else row.movedAt = (live.get(row.id) || demo.get(row.id) || row).movedAt || row.at;
   row.seen = initial ? row.at : Date.now();
   seenStage.set(row.id, row.stage);
@@ -113,7 +157,7 @@ function drawMap() {
     const node = net.querySelector('.node[data-n="' + n + '"]');
     node.classList.toggle('hot', list.length > 0); node.querySelector('.nc').textContent = list.length || '';
     const shown = list.length > MAXC ? list.slice(0, MAXC - 1) : list;
-    shown.forEach((r, i) => want.set(r.id, { n: +n, i, name: r.name || 'Anonymous', won: r.stage === 6 }));
+    shown.forEach((r, i) => want.set(r.id, { n: +n, i, name: r.name || 'Anonymous', won: r.stage === 6, sc: r.school ? schoolColor(r.school) : '' }));
     if (list.length > MAXC) want.set('_more' + n, { n: +n, i: MAXC - 1, name: '+' + (list.length - MAXC + 1) + ' more', more: true });
   });
   chips.forEach((el, id) => { if (!want.has(id)) { chips.delete(id); el.classList.add('gone'); setTimeout(() => el.remove(), 600); } });
@@ -125,6 +169,7 @@ function drawMap() {
       net.appendChild(el); chips.set(id, el); void el.offsetWidth;
     }
     el.textContent = w.name; el.classList.toggle('more', !!w.more); el.classList.toggle('won', !!w.won);
+    if (w.sc) el.style.setProperty('--sc', w.sc); else el.style.removeProperty('--sc');
     el.style.setProperty('--x', (w.n * 20 - 10) + '%'); el.style.setProperty('--i', w.i);
   });
 }
@@ -133,9 +178,10 @@ setInterval(drawMap, 5000);
 // Staff "Test alarm": a fake intruder runs the course on this screen only.
 function runDemo() {
   const id = '_demo' + Date.now(), name = 'TEST-' + (10 + Math.floor(Math.random() * 90));
+  const sl = CFG.schools || [], school = sl.length ? sl[Math.floor(Math.random() * sl.length)] : '';
   [1, 2, 3, 4, 5, 6].forEach((n, k) => setTimeout(() => {
-    const row = { id, name, stage: n, at: Date.now() }; track(row, false); demo.set(id, row); drawMap();
-    if (n === 6) { setTimeout(() => { demo.delete(id); drawMap(); }, 8000); queue.push({ name, secs: 154, id: '_test' }); setTimeout(celebrate, 2500); }
+    const row = { id, name, school, stage: n, at: Date.now() }; track(row, false); demo.set(id, row); drawMap();
+    if (n === 6) { setTimeout(() => { demo.delete(id); drawMap(); }, 8000); queue.push({ name, school, secs: 154, id: '_test' }); setTimeout(celebrate, 2500); }
   }, k * 2200));
 }
 
@@ -146,7 +192,9 @@ function celebrate() {
   const c = queue.shift(); busy = true;
   const rank = rows.findIndex(r => r.id === c.id) + 1;
   $('cName').textContent = c.name || 'Anonymous';
-  $('cInfo').textContent = 'Vault cracked in ' + fmt(c.secs) + (rank > 0 ? ' · #' + rank + ' today' : '');
+  $('cInfo').textContent = (c.school ? c.school + ' · ' : '') + 'Vault cracked in ' + fmt(c.secs) + (rank > 0 ? ' · #' + rank + ' today' : '');
+  $('cBeat').hidden = !(INSTR && c.secs < INSTR.secs); $('cBeat').textContent = INSTR ? '★ Beat ' + INSTR.name + '’s time! ★' : '';
+  $('cName').style.color = c.school ? schoolColor(c.school) : '';
   $('celebrate').hidden = false; rain(); if (soundOn) siren();
   setTimeout(() => { $('celebrate').hidden = true; cancelAnimationFrame(raf); busy = false; celebrate(); }, 7000);
 }

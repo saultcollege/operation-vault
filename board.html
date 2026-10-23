@@ -8,9 +8,9 @@
 <meta name="theme-color" content="#0A0E0B">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
-<link rel="stylesheet" href="style.css?v=20261023b">
+<link rel="stylesheet" href="style.css?v=20261023c">
 <script src="qrcode.js"></script>
-<script src="config.js?v=20261023b"></script>
+<script src="config.js?v=20261023c"></script>
 </head>
 <body>
 <div id="board">
@@ -43,24 +43,25 @@
   </section>
   <div class="b-main">
     <div class="b-left">
-      <h1 class="b-title"><span class="g">Today's</span> top hackers</h1>
+      <div class="b-head"><h1 class="b-title"><span class="g">Today's</span> top hackers</h1><div class="b-stats"><span><b id="stCount">0</b> breaches today</span><span>fastest <b id="stBest">—</b></span></div></div>
       <ol class="board-list" id="boardList"></ol>
       <div class="empty" id="boardEmpty">No breaches yet today. Be the first name up here.</div>
       <div class="b-note" id="boardNote" hidden></div>
     </div>
     <div class="b-right">
-      <div class="b-cta">Can you<br><span class="g">break in?</span></div>
       <div class="b-qr">
         <div id="qr" role="img" aria-label="QR code to play Operation Vault"></div>
         <div class="steps">
+          <div class="b-cta">Can you <span class="g">break in?</span></div>
           <span><b>1.</b> Scan to play on your phone</span>
           <span><b>2.</b> Beat four defences against the clock</span>
-          <span><b>3.</b> Claim a Prize for opening the vault </span>
+          <span><b>3.</b> Claim a Prize for opening the vault</span>
         </div>
       </div>
-      <div class="stats">
-        <div class="stat"><div class="k">BREACHES TODAY</div><div class="v" id="stCount">0</div></div>
-        <div class="stat"><div class="k">FASTEST TIME</div><div class="v" id="stBest">—</div></div>
+      <div class="battle">
+        <div class="battle-h"><span>School battle</span><span class="battle-sub">Score: average of 5 best times</span></div>
+        <ol class="battle-list" id="battle"></ol>
+        <div class="battle-empty" id="battleEmpty">Pick your school when you start. The first school on the board takes the lead!</div>
       </div>
     </div>
   </div>
@@ -73,6 +74,7 @@
   <div class="z t2">Breach successful</div>
   <div class="z t3" id="cName"></div>
   <div class="z t4" id="cInfo"></div>
+  <div class="z t5" id="cBeat" hidden></div>
 </div>
 
 <div id="staffPanel" hidden>
@@ -85,6 +87,6 @@
   </form>
 </div>
 
-<script type="module" src="board.js?v=20261023b"></script>
+<script type="module" src="board.js?v=20261023c"></script>
 </body>
 </html>

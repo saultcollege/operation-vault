@@ -1,4 +1,4 @@
-import { initDb } from './db.js?v=20261023b';
+import { initDb } from './db.js?v=20261023c';
 
 const $ = id => document.getElementById(id);
 let db = null, leads = [];
@@ -38,10 +38,10 @@ const pad = n => String(n).padStart(2, '0');
 $('lDownload').addEventListener('click', () => {
   const ev = $('lPick').value, rows = leads.filter(l => !ev || l.event === ev);
   if (!rows.length) { msg('Nothing to download yet.'); return; }
-  const out = [['Date', 'Time', 'Event', 'First name', 'Email', 'Mobile', 'I am', 'Consent given']];
+  const out = [['Date', 'Time', 'Event', 'School', 'First name', 'Email', 'Mobile', 'I am', 'Consent given']];
   rows.forEach(l => {
     const d = new Date(l.at || Date.now());
-    out.push([l.day, l.at ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : '', l.event, l.name, l.kind === 'email' ? l.contact : '', l.kind === 'phone' ? l.contact : '', l.who || '', l.consent]);
+    out.push([l.day, l.at ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : '', l.event, l.school || '', l.name, l.kind === 'email' ? l.contact : '', l.kind === 'phone' ? l.contact : '', l.who || '', l.consent]);
   });
   const csv = '﻿' + out.map(r => r.map(cell).join(',')).join('\r\n') + '\r\n';
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));

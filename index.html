@@ -8,14 +8,14 @@
 <meta name="theme-color" content="#0A0E0B">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
-<link rel="stylesheet" href="style.css?v=20261023b">
+<link rel="stylesheet" href="style.css?v=20261023c">
 <script src="qrcode.js"></script>
-<script src="config.js?v=20261023b"></script>
+<script src="config.js?v=20261023c"></script>
 </head>
 <body>
 <main id="play">
   <div class="hud" id="hud" hidden>
-    <span class="op" id="hudName">OP: VAULT</span>
+    <span class="op"><span id="hudName">OP: VAULT</span><span class="streak" id="streak" aria-live="polite"></span></span>
     <div class="pips" aria-label="Progress">
       <span class="pip" data-p="1">1</span><span class="pip" data-p="2">2</span><span class="pip" data-p="3">3</span><span class="pip" data-p="4">4</span><span class="pip" data-p="5" aria-label="Vault">V</span>
     </div>
@@ -38,6 +38,8 @@
       <p style="margin:0;font-size:14px;color:var(--muted)">Hints cost 30 seconds. Wrong answers cost 10. Fastest time today tops the leaderboard.</p>
       <div><label class="l" for="codeIn">Your hacker name (shows on the big screen)</label>
         <input class="inp" id="codeIn" maxlength="16" autocomplete="off" placeholder="Leave blank for a codename" style="width:100%"></div>
+      <div><span class="l" id="schoolL">Your school (for the school battle)</span>
+        <div class="schools" id="schools" role="group" aria-labelledby="schoolL"></div></div>
       <div class="msg" id="m0" role="status" hidden></div>
       <button type="button" class="btn" id="startBtn">Start the clock →</button>
     </div>
@@ -50,6 +52,7 @@
     <h2>Crack the cipher</h2>
     <p class="brief">We intercepted this note. It's a Caesar cipher: every letter is shifted the same number of places along the alphabet. Turn the dial until it reads as English.</p>
     <div class="card stack">
+      <svg class="wheel" id="wheel" viewBox="0 0 220 220" aria-hidden="true"></svg>
       <div class="cipher" id="cipherText" aria-live="polite"></div>
       <div class="dial">
         <button type="button" class="btn ghost small" id="shDown" aria-label="Shift down">−</button>
@@ -63,33 +66,30 @@
         <div class="field"><input id="a1" inputmode="numeric" autocomplete="off" placeholder="0–9"><button type="button" class="btn" data-submit="1">Submit</button></div></div>
       <div class="msg" id="m1" role="status"></div>
       <div class="row"><button type="button" class="btn hint small" data-hint="1">Hint (+30s)</button></div>
-      <div class="hintbox" id="h1" hidden>Try a shift around 7. You'll know it when real words appear.</div>
+      <div class="hintbox" id="h1" hidden></div>
     </div>
   </section>
 
-  <!-- stage 2: OSINT -->
+  <!-- stage 2: OSINT (the person is picked at random each game, see game.js) -->
   <section class="screen" data-s="s2" hidden>
     <p class="kicker">Defence 02 // Staff login</p>
     <h2>Guess the password</h2>
-    <p class="brief">Jordan runs operations at Lakehead Logistics. People often build passwords from things they post online. Read Jordan's profile, then log in as Jordan.</p>
-    <div class="prof" aria-label="Jordan's social profile">
-      <div class="cover"></div>
-      <div class="who"><div class="av" aria-hidden="true">JR</div><div style="padding-bottom:4px"><div class="nm">Jordan Reyes</div><div class="sub2">Ops Manager at Lakehead Logistics · Sault Ste. Marie</div></div></div>
-      <div class="post" style="margin-top:12px"><div class="meta">2 days ago</div>Biscuit turned 6 today. Best dog in the Soo.</div>
-      <div class="post"><div class="meta">Last week</div>Reminder to self: work password expires Friday. Ugh, again??</div>
-      <div class="post"><div class="meta">March</div>Throwback to the day we brought Biscuit home in 2019. Look at those ears!</div>
-      <div class="post"><div class="meta">January</div>Go Greyhounds! Poutine after the game, obviously.</div>
+    <p class="brief" id="b2"></p>
+    <div class="prof" id="prof">
+      <div class="cover" id="pCover"></div>
+      <div class="who"><div class="av" id="pAv" aria-hidden="true"></div><div style="padding-bottom:4px"><div class="nm" id="pName"></div><div class="sub2" id="pRole"></div></div></div>
+      <div id="pPosts" style="margin-top:12px"></div>
     </div>
     <div class="login stack" style="margin-top:16px">
       <div class="bar">LAKEHEAD LOGISTICS · STAFF PORTAL</div>
-      <div><label class="l" for="u2">Username</label><input class="inp" id="u2" value="jreyes" readonly style="width:100%"></div>
+      <div><label class="l" for="u2">Username</label><input class="inp" id="u2" readonly style="width:100%"></div>
       <div><label class="l" for="a2">Password</label>
         <div class="field"><input id="a2" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" class="btn" data-submit="2">Log in</button></div></div>
       <div class="msg" id="m2" role="status"></div>
     </div>
     <div class="stack" style="margin-top:12px">
       <div class="row"><button type="button" class="btn hint small" data-hint="2">Hint (+30s)</button></div>
-      <div class="hintbox" id="h2" hidden>Jordan's passwords always follow the same pattern: pet's name + the year the pet came home.</div>
+      <div class="hintbox" id="h2" hidden></div>
     </div>
   </section>
 
@@ -110,7 +110,7 @@
   <section class="screen" data-s="s4" hidden>
     <p class="kicker">Defence 04 // Inbox</p>
     <h2>Phish or legit?</h2>
-    <p class="brief">Three messages just landed in Jordan's inbox. Call each one.</p>
+    <p class="brief" id="b4">Three messages just landed in the inbox. Call each one. Spot a phish and you can tap its red flag for a time bonus.</p>
     <div class="stack">
       <div class="prog" id="p4">Message 1 of 3</div>
       <div class="mail" id="mail"></div>
@@ -125,6 +125,7 @@
     <h2 id="rwTitle">Access granted</h2>
     <p class="brief" id="rwText"></p>
     <div class="reward"><span class="lbl" id="rwLbl">VAULT DIGIT 1</span><span class="dig" id="rwDig">0</span></div>
+    <div class="job"><div class="job-k">This is a real job</div><div class="job-t" id="rwJob"></div><div id="rwJobText"></div></div>
     <div style="margin-top:16px"><button type="button" class="btn" id="rwNext">Next defence →</button></div>
   </section>
 
@@ -141,12 +142,30 @@
     </div>
   </section>
 
+  <!-- bonus: crack the hash -->
+  <section class="screen" data-s="bonus" hidden>
+    <p class="kicker">Bonus // Leaked database</p>
+    <h2>Crack the hash</h2>
+    <p class="brief" id="b6">Websites don’t store your password. They store its hash, a scrambled fingerprint of it. Attackers stole this one. Hash words from a leaked list until one matches.</p>
+    <div class="card stack">
+      <div><span class="l">Stolen hash (SHA-256)</span><div class="hash-target" id="hTarget"></div></div>
+      <div class="hintbox">Clue from the breach: the site required passwords of <b>exactly 8 characters with at least one number</b>. Every wrong hash costs 5 seconds.</div>
+      <div class="bonus-clock">BONUS TIME <b id="bClock">0:00</b> <span class="pen" id="bPen"></span></div>
+      <div class="words" id="words"></div>
+      <div class="msg" id="m6" role="status"></div>
+    </div>
+    <div style="margin-top:16px"><button type="button" class="btn ghost" id="bonusBack">← Back to my results</button></div>
+  </section>
+
   <!-- done -->
   <section class="screen" data-s="done" hidden>
     <p class="kicker" style="color:var(--red)">● Breach successful</p>
     <h2>You're in.</h2>
     <div class="big-time" id="finalTime">0:00</div>
     <p class="brief" id="finalBreak" style="margin-top:4px"></p>
+    <div class="rankline">RANK: <b id="rankT"></b></div>
+    <div class="badges" id="badges"></div>
+    <p class="msg info" id="profLine" hidden></p>
     <div class="lock-callout stack">
       <div class="mono" style="font-size:13px;letter-spacing:.1em;color:var(--amber)">NOW OPEN THE REAL VAULT AT THE BOOTH</div>
       <div class="combo" id="combo">0000</div>
@@ -160,6 +179,13 @@
     </div>
 
     <p class="msg info" id="saveOff" hidden style="margin-top:16px">The leaderboard isn’t connected right now, but your time still counts. Show this screen at the booth.</p>
+
+    <div class="card stack bonus-card" id="bonusCard" style="margin-top:20px">
+      <div class="kicker" style="margin:0">Bonus round</div>
+      <div style="font-weight:700">Crack the hash</div>
+      <div class="small-print">One more challenge, with its own timer. Crack it for a ★ next to your name on the big screen and a Hash cracker badge.</div>
+      <button type="button" class="btn hint" id="bonusGo">Start the bonus round →</button>
+    </div>
 
     <div class="card stack" id="wantedCard" style="margin-top:20px">
       <div class="kicker" style="margin:0">Wanted poster</div>
@@ -214,6 +240,6 @@
     <div style="margin-top:16px"><button type="button" class="btn ghost" id="againBtn">Play again</button></div>
   </section>
 </main>
-<script type="module" src="game.js?v=20261023b"></script>
+<script type="module" src="game.js?v=20261023c"></script>
 </body>
 </html>

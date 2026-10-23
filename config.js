@@ -23,6 +23,14 @@ window.OV_CONFIG = {
   // Change it before each event, e.g. 'Fall Open House 2026'.
   event: 'Booth',
 
+  // School battle: players pick one of these when they start. Add, remove
+  // or reorder freely. Each school gets its own colour on the big screen.
+  schools: ['White Pines', 'Superior Heights', "St. Mary's College", 'CASS', 'W.C. Eaket S.S.', 'ELSS', 'Michipicoten High School'],
+
+  // The "line to beat" on the big screen. Play a run yourself and put the
+  // time here as 'm:ss'. Leave time empty ('') to hide it.
+  instructor: { name: 'Instructor', time: '' },
+
   // Optional: the address the big-screen QR code should open.
   // Leave empty to use this site's own index.html automatically.
   playUrl: ''

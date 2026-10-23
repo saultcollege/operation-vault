@@ -1,4 +1,4 @@
-import { initDb, dayKey, fmt } from './db.js?v=20261023b';
+import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261023c';
 
 const VAULT = String((window.OV_CONFIG && window.OV_CONFIG.vault) || '7319').replace(/\D/g, '').padEnd(4, '0').slice(0, 4);
 const KIOSK = new URLSearchParams(location.search).has('kiosk');
@@ -28,24 +28,62 @@ function audio() { if (!actx) { try { actx = new (window.AudioContext || window.
 function chime() { const a = audio(); if (!a) return; const t = a.currentTime; [523, 659, 784, 1047].forEach((f, i) => { const o = a.createOscillator(), g = a.createGain(); o.type = 'square'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + i * .09); g.gain.exponentialRampToValueAtTime(0.08, t + i * .09 + .02); g.gain.exponentialRampToValueAtTime(0.0001, t + i * .09 + .25); o.connect(g).connect(a.destination); o.start(t + i * .09); o.stop(t + i * .09 + .3); }); }
 function buzz() { const a = audio(); if (!a) return; const t = a.currentTime, o = a.createOscillator(), g = a.createGain(); o.type = 'sawtooth'; o.frequency.value = 110; g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.0001, t + .25); o.connect(g).connect(a.destination); o.start(t); o.stop(t + .26); }
 
+function ding() { const a = audio(); if (!a) return; const t = a.currentTime; [1319, 1760].forEach((f, i) => { const o = a.createOscillator(), g = a.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t + i * .07); g.gain.exponentialRampToValueAtTime(0.09, t + i * .07 + .01); g.gain.exponentialRampToValueAtTime(0.0001, t + i * .07 + .3); o.connect(g).connect(a.destination); o.start(t + i * .07); o.stop(t + i * .07 + .32); }); }
+function whoosh() { const a = audio(); if (!a || a.state !== 'running') return; const t = a.currentTime, len = a.sampleRate * .25, buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len); const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); src.buffer = buf; f.type = 'bandpass'; f.frequency.setValueAtTime(400, t); f.frequency.exponentialRampToValueAtTime(3000, t + .25); g.gain.value = 0.05; src.connect(f).connect(g).connect(a.destination); src.start(t); }
+
 /* ---------- flow ---------- */
 const screens = [...document.querySelectorAll('#play .screen')];
-function show(name) { screens.forEach(s => s.hidden = s.dataset.s !== name); window.scrollTo(0, 0); }
+// Each challenge's brief types itself out, and screens glitch in.
+function typeOut(el) {
+  if (!el) return; const full = el.dataset.full || el.textContent; el.dataset.full = full; clearInterval(el._t);
+  if (reduce) { el.textContent = full; return; }
+  let n = 0; el.textContent = ''; el._t = setInterval(() => { n += 3; el.textContent = full.slice(0, n); if (n >= full.length) clearInterval(el._t); }, 16);
+}
+function show(name) {
+  screens.forEach(s => s.hidden = s.dataset.s !== name); window.scrollTo(0, 0);
+  const s = screens.find(x => x.dataset.s === name);
+  if (s && !reduce) { s.classList.remove('glitch'); void s.offsetWidth; s.classList.add('glitch'); }
+  if (s && /^(s\d|bonus)$/.test(name)) { typeOut(s.querySelector('.brief')); whoosh(); }
+}
 let t0 = 0, penalty = 0, running = false, stage = 0, ticking = null, finalSecs = 0;
+let streak = 0, bestStreak = 0, hintsUsed = 0, mistakes = 0, penSecs = 0, bonusSecsWon = 0;
 const elapsed = () => (performance.now() - t0) / 1000 + penalty;
-function addPen(s, why) { penalty += s; const p = $('pen'); p.textContent = '+' + s + 's ' + why; clearTimeout(p._t); p._t = setTimeout(() => p.textContent = '', 1800); }
+function flash(text, cls) { const p = $('pen'); p.className = 'pen ' + (cls || ''); p.textContent = text; clearTimeout(p._t); p._t = setTimeout(() => p.textContent = '', 1800); }
+function addPen(s, why) { penalty += s; penSecs += s; streak = 0; showStreak(); if (why === 'hint') hintsUsed++; else mistakes++; flash('+' + s + 's ' + why); }
+function addBonus(s, why) { penalty -= s; bonusSecsWon += s; flash('\u2212' + s + 's ' + why, 'plus'); }
+function good() { streak++; bestStreak = Math.max(bestStreak, streak); showStreak(); }
+function showStreak() { const el = $('streak'); el.textContent = streak >= 2 ? '\u00d7' + streak + ' streak' : ''; el.classList.remove('pop'); void el.offsetWidth; if (streak >= 2) el.classList.add('pop'); }
 function pips() { document.querySelectorAll('.pip').forEach(p => { const n = +p.dataset.p; p.classList.toggle('done', n < stage); p.classList.toggle('now', n === stage); }); }
 function tick() { if (running) $('clock').textContent = fmt(elapsed()); }
 function bad(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); buzz(); }
+
+/* ---------- school battle ---------- */
+// Schools come from config.js. A device remembers its pick, except the booth PC/tablet (?kiosk).
+const SCHOOLS = ((window.OV_CONFIG && window.OV_CONFIG.schools) || []).map(String).filter(Boolean);
+let school = '';
+try { if (!KIOSK) school = localStorage.getItem('ov-school') || ''; } catch (e) {}
+if (!SCHOOLS.includes(school)) school = '';
+function drawSchools() {
+  const box = $('schools'); box.textContent = '';
+  SCHOOLS.concat(['']).forEach(n => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'sch-btn'; b.textContent = n || 'Just visiting';
+    b.style.setProperty('--sc', n ? schoolColor(n) : 'var(--muted)'); b.setAttribute('aria-pressed', n === school);
+    b.addEventListener('click', () => { school = n; try { if (!KIOSK) localStorage.setItem('ov-school', n); } catch (e) {} drawSchools(); });
+    box.appendChild(b);
+  });
+}
+drawSchools();
+if (!SCHOOLS.length) $('schools').parentElement.hidden = true;
 
 function start() {
   const typed = cleanName($('codeIn').value);
   if (typed && !isAppropriate(typed)) { $('m0').hidden = false; $('m0').className = 'msg bad'; $('m0').textContent = 'That name can’t go on the big screen. Please pick another.'; bad($('codeIn')); return; }
   $('m0').hidden = true;
   const name = typed || codename();
-  $('hudName').textContent = name;
+  $('hudName').textContent = name; $('hud').style.setProperty('--sc', school ? schoolColor(school) : 'var(--amber)');
   audio(); liveStart(name);
   t0 = performance.now(); penalty = 0; running = true; stage = 1;
+  streak = 0; bestStreak = 0; hintsUsed = 0; mistakes = 0; penSecs = 0; bonusSecsWon = 0; bonusDone = false; showStreak();
   $('hud').hidden = false; pips(); clearInterval(ticking); ticking = setInterval(tick, 250);
   resetStages(); show('s1'); setTimeout(() => $('shift').focus(), 50);
 }
@@ -58,7 +96,7 @@ $('codeIn').addEventListener('keydown', e => { if (e.key === 'Enter') start(); }
 const CODE_A = ['GHOST', 'VIPER', 'RAVEN', 'CIPHER', 'NOVA', 'ROGUE', 'SHADOW', 'BYTE', 'GLITCH', 'ZERO', 'SPECTRE', 'PHANTOM'];
 const codename = () => CODE_A[Math.floor(Math.random() * CODE_A.length)] + '-' + (10 + Math.floor(Math.random() * 90));
 let liveId = null, liveName = '', liveBeat = null, liveEnd = null;
-function liveSet(n) { dbReady.then(db => { if (db && liveId) return db.setLive(liveId, liveName, n, dayKey()); }).catch(() => {}); }
+function liveSet(n) { dbReady.then(db => { if (db && liveId) return db.setLive(liveId, liveName, n, dayKey(), school); }).catch(() => {}); }
 function liveStart(name) {
   liveStop(); liveName = name;
   dbReady.then(db => { if (!db) return; liveId = db.newLiveId(); liveSet(1); liveBeat = setInterval(() => { if (running) liveSet(stage); }, 45000); });
@@ -73,27 +111,100 @@ addEventListener('pagehide', liveStop);
 
 /* ---------- stage 1: cipher ---------- */
 const WORDS = ['ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE'];
-const KEY = 7;
+// A new note and key every game, so the answer can't be passed down the line.
+const NOTES = [
+  'MEET AT THE DOCK AT MIDNIGHT. THE FIRST VAULT DIGIT IS {D}.',
+  'THE GUARD CHANGES AT NINE. FIRST DIGIT OF THE VAULT CODE: {D}.',
+  'DELETE THIS AFTER READING. THE VAULT CODE STARTS WITH {D}.',
+  'BRING THE USB DRIVE. THE FIRST VAULT DIGIT IS {D}.',
+  'THE CAMERAS GO DARK AT TWO. VAULT DIGIT ONE IS {D}.'
+];
+let KEY = 7, CIPH = '';
 const caesar = (s, k) => s.replace(/[A-Z]/g, c => String.fromCharCode((c.charCodeAt(0) - 65 + k + 104) % 26 + 65));
-const CIPH = caesar(`MEET AT THE DOCK AT MIDNIGHT. THE FIRST VAULT DIGIT IS ${WORDS[+VAULT[0]]}.`, KEY);
-function renderCipher() { const k = +$('shift').value; $('shiftVal').textContent = k; $('cipherText').textContent = caesar(CIPH, -k); $('cipherText').classList.toggle('ok', k === KEY); }
+function newCipher() {
+  KEY = 3 + Math.floor(Math.random() * 21);
+  CIPH = caesar(NOTES[Math.floor(Math.random() * NOTES.length)].replace('{D}', WORDS[+VAULT[0]]), KEY);
+  $('h1').textContent = 'Try a shift between ' + (KEY - 2) + ' and ' + (KEY + 2) + '. You’ll know it when real words appear.';
+}
+// Cipher wheel: outer ring is the scrambled letter, inner ring is what it decodes to.
+(function buildWheel() {
+  const NS = 'http://www.w3.org/2000/svg', svg = $('wheel'), c = 110;
+  const el = (tag, at) => { const e = document.createElementNS(NS, tag); Object.entries(at).forEach(([k, v]) => e.setAttribute(k, v)); return e; };
+  [104, 78, 52].forEach(r => svg.appendChild(el('circle', { cx: c, cy: c, r, class: 'w-ring' })));
+  const ring = (r, cls, id) => { const g = el('g', { class: cls }); if (id) g.id = id; for (let i = 0; i < 26; i++) { const t = el('text', { x: c, y: c - r, transform: 'rotate(' + (i * 360 / 26) + ' ' + c + ' ' + c + ')' }); t.textContent = String.fromCharCode(65 + i); g.appendChild(t); } return g; };
+  svg.appendChild(ring(91, 'w-out')); svg.appendChild(ring(65, 'w-in', 'wIn'));
+  svg.appendChild(el('path', { d: 'M104 0 L116 0 L110 10 Z', class: 'w-ptr' }));
+  const k = el('text', { x: c, y: c + 6, class: 'w-key', id: 'wKey' }); k.textContent = 'KEY 0'; svg.appendChild(k);
+})();
+function renderCipher() {
+  const k = +$('shift').value; $('shiftVal').textContent = k; $('cipherText').textContent = caesar(CIPH, -k);
+  $('cipherText').classList.toggle('ok', k === KEY); $('wheel').classList.toggle('ok', k === KEY);
+  $('wIn').style.transform = 'rotate(' + (k * 360 / 26) + 'deg)'; $('wKey').textContent = 'KEY ' + k;
+}
 $('shift').addEventListener('input', renderCipher);
 $('shDown').addEventListener('click', () => { $('shift').value = (+$('shift').value + 25) % 26; renderCipher(); });
 $('shUp').addEventListener('click', () => { $('shift').value = (+$('shift').value + 1) % 26; renderCipher(); });
 
-/* ---------- stage 3: log ---------- */
-const LOG = [
-  ['02:41:07', '10.0.4.22', 'jreyes', 'ok', 'LOGIN'],
-  ['02:58:13', '203.0.113.66', 'admin', 'fail', 'FAILED'],
-  ['02:58:14', '203.0.113.66', 'admin', 'fail', 'FAILED'],
-  ['02:58:15', '203.0.113.66', 'root', 'fail', 'FAILED'],
-  ['02:58:17', '203.0.113.66', 'backup', 'fail', 'FAILED'],
-  ['03:01:44', '10.0.4.31', 'mchen', 'ok', 'LOGIN'],
-  ['03:12:09', '203.0.113.66', 'svc_backup', 'ok', 'LOGIN'],
-  ['03:15:30', '10.0.4.22', 'jreyes', 'out', 'LOGOUT'],
-  ['03:40:02', '10.0.4.31', 'mchen', 'fail', 'FAILED']
+/* ---------- stage 2: OSINT ---------- */
+// One of these people is picked each game. Add more freely: pass is the
+// accepted password, near catches a half-right guess.
+const PEOPLE = [
+  { name: 'Jordan Reyes', user: 'jreyes', init: 'JR', av: '#C98D4B', cover: '#2E5E8C', role: 'Ops Manager at Lakehead Logistics · Sault Ste. Marie',
+    posts: [['2 days ago', 'Biscuit turned 6 today. Best dog in the Soo.'], ['Last week', 'Reminder to self: work password expires Friday. Ugh, again??'], ['March', 'Throwback to the day we brought Biscuit home in 2019. Look at those ears!'], ['January', 'Go Greyhounds! Poutine after the game, obviously.']],
+    pass: /^biscuit2019!?$/i, near: /biscuit/i, nearMsg: 'Right name. What about the year Biscuit came home?', far: 'Look for something Jordan clearly loves.',
+    hint: 'Jordan’s passwords always follow the same pattern: pet’s name + the year the pet came home.', lesson: 'Pet name + year: found in two posts.' },
+  { name: 'Taylor Brooks', user: 'tbrooks', init: 'TB', av: '#5B8C5A', cover: '#8C2E2E', role: 'Dispatch Supervisor at Lakehead Logistics · Sault Ste. Marie',
+    posts: [['Yesterday', 'Greyhounds win in overtime!! Best team in the league. I will not be taking questions.'], ['Last week', 'Work made us change passwords AGAIN. At least mine is easy to remember 😎'], ['September', 'Rec hockey starts tonight. Lucky number 17 is back on my jersey.'], ['August', 'Camping at Pancake Bay. No signal, no problem.']],
+    pass: /^greyhounds17!?$/i, near: /greyhounds|hounds|17/i, nearMsg: 'Close. Taylor’s password mixes a favourite team and a number.', far: 'Look for what Taylor brags about most.',
+    hint: 'Taylor’s passwords are always: favourite team + jersey number.', lesson: 'Favourite team + jersey number: both in public posts.' },
+  { name: 'Morgan Lee', user: 'mlee', init: 'ML', av: '#7A5BA6', cover: '#2E7A6C', role: 'Payroll Coordinator at Lakehead Logistics · Sault Ste. Marie',
+    posts: [['Today', 'Can’t believe my baby girl Ellie turns 8 today 🎂'], ['Last month', 'Ellie’s first day of grade 3! Where does the time go?'], ['May', 'Spring cleaning turned up Ellie’s hospital bracelet from 2018. Crying.'], ['February', 'Who else is sick of snow? Asking for everyone in the Soo.']],
+    pass: /^ellie2018!?$/i, near: /ellie/i, nearMsg: 'Right name. What year was Ellie born?', far: 'Look at who Morgan posts about most.',
+    hint: 'Morgan always uses: child’s name + the year they were born.', lesson: 'Child’s name + birth year: pieced together from a few posts.' },
+  { name: 'Casey Martin', user: 'cmartin', init: 'CM', av: '#B5563C', cover: '#4A4F8C', role: 'Warehouse Lead at Lakehead Logistics · Sault Ste. Marie',
+    posts: [['3 days ago', 'Drove past the big goose on the way home to Wawa. Nothing beats your hometown.'], ['Last week', 'IT says my password is “too simple.” It’s literally where I grew up plus my grad year. Who would guess that?'], ['June', 'Class of 2009 reunion this summer! Wawa represent!'], ['April', 'New forklift certification. Fear me.']],
+    pass: /^wawa2009!?$/i, near: /wawa|2009/i, nearMsg: 'Close. One of Casey’s posts gives away the pattern.', far: 'Read Casey’s posts carefully. One gives the pattern away.',
+    hint: 'Casey’s password is hometown + high school graduation year.', lesson: 'Hometown + grad year: Casey even posted the pattern.' }
 ];
-const LOG_ANS = 6;
+let P = PEOPLE[0];
+const first = () => P.name.split(' ')[0];
+function newPerson() {
+  P = PEOPLE[Math.floor(Math.random() * PEOPLE.length)];
+  $('b2').dataset.full = first() + ' works at Lakehead Logistics. People often build passwords from things they post online. Read ' + first() + '’s profile, then log in as ' + first() + '.';
+  $('b4').dataset.full = 'Three messages just landed in ' + first() + '’s inbox. Call each one. Spot a phish, then tap its red flag for a 5-second bonus.';
+  $('prof').setAttribute('aria-label', first() + '’s social profile');
+  $('pCover').style.background = P.cover; $('pAv').style.background = P.av; $('pAv').textContent = P.init;
+  $('pName').textContent = P.name; $('pRole').textContent = P.role; $('u2').value = P.user; $('h2').textContent = P.hint;
+  const box = $('pPosts'); box.textContent = '';
+  P.posts.forEach(([when, text]) => { const d = document.createElement('div'); d.className = 'post'; const m = document.createElement('div'); m.className = 'meta'; m.textContent = when; d.append(m, text); box.appendChild(d); });
+}
+
+/* ---------- stage 3: log ---------- */
+// A fresh server log every game: one outside address tries a burst of
+// usernames, then gets in a few minutes later. Staff noise and a stray
+// failed login from elsewhere make it a hunt.
+const STAFF = [['10.0.4.22', 'jreyes'], ['10.0.4.31', 'mchen'], ['10.0.4.17', 'tbrooks'], ['10.0.4.40', 'mlee'], ['10.0.4.12', 'cmartin'], ['10.0.4.55', 'pkhan']];
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pickOne = a => a[Math.floor(Math.random() * a.length)];
+let LOG = [], LOG_ANS = 0, ATTACKER = '';
+function newLog() {
+  const nets = ['203.0.113.', '198.51.100.', '192.0.2.'];
+  ATTACKER = pickOne(nets) + rnd(10, 250);
+  let decoy; do { decoy = pickOne(nets) + rnd(10, 250); } while (decoy === ATTACKER);
+  const lines = [], ts = x => [Math.floor(x / 3600), Math.floor(x / 60) % 60, x % 60].map(n => String(n).padStart(2, '0')).join(':');
+  let t = rnd(2 * 3600, 3 * 3600);
+  shuffle(['admin', 'root', 'backup', 'administrator', 'guest', 'test', 'oracle']).slice(0, rnd(3, 5)).forEach(u => { lines.push([t, ATTACKER, u, 'fail', 'FAILED']); t += rnd(1, 3); });
+  lines.push([t + rnd(120, 900), ATTACKER, pickOne(['svc_backup', 'helpdesk', 'admin_old', 'scanner']), 'ok', 'LOGIN']);
+  shuffle(STAFF.slice()).slice(0, 3).forEach(([ip, u], i) => {
+    const at = rnd(5400, 4 * 3600); lines.push([at, ip, u, 'ok', 'LOGIN']);
+    if (i === 0) lines.push([at + rnd(600, 2400), ip, u, 'out', 'LOGOUT']);
+    if (i === 1) lines.push([at + rnd(300, 3000), ip, u, 'fail', 'FAILED']);
+  });
+  lines.push([rnd(5400, 4 * 3600), decoy, pickOne(['admin', 'root']), 'fail', 'FAILED']);
+  lines.sort((a, b) => a[0] - b[0]);
+  LOG = lines.map(l => [ts(l[0]), l[1], l[2], l[3], l[4]]);
+  LOG_ANS = LOG.findIndex(l => l[1] === ATTACKER && l[3] === 'ok');
+}
 function buildLog() {
   const box = $('logList'); box.textContent = '';
   LOG.forEach((r, i) => {
@@ -107,34 +218,37 @@ function buildLog() {
 }
 function pickLog(i, b) {
   if (stage !== 3) return;
-  if (i === LOG_ANS) { b.classList.add('right'); setTimeout(() => reward(3), 500); return; }
+  if (i === LOG_ANS) { b.classList.add('right'); good(); setTimeout(() => reward(3), 500); return; }
   b.classList.add('wrong'); addPen(10, 'wrong line'); bad(b);
   const r = LOG[i];
   $('m3').className = 'msg bad';
-  $('m3').textContent = r[3] === 'fail' && r[1].startsWith('203') ? 'That attempt failed. Find the moment they actually got IN.'
-    : r[1].startsWith('10.') ? 'That’s an internal address: a staff member on the office network.' : 'Not that one. Look again.';
+  $('m3').textContent = r[1] === ATTACKER ? 'That attempt failed. Find the moment they actually got IN.'
+    : r[1].startsWith('10.') ? 'That’s an internal address: a staff member on the office network.'
+    : r[3] === 'fail' ? 'One failed try from outside isn’t a break-in. Look for a burst of failures, then a success.' : 'Not that one. Look again.';
 }
 
 /* ---------- stage 4: phish ---------- */
 // Question bank. Each game picks MAIL_PER_GAME messages at random, always
 // with at least one phish and one legit. Add or edit entries freely.
+// flag is the exact text players tap for the red-flag bonus (in: 'from'
+// when it's in the sender line).
 // Lakehead Logistics' real domain is lakeheadlogistics.ca. All names,
 // companies, numbers and sites here are made up.
 const MAIL_PER_GAME = 3;
 const MAIL_BANK = [
   // ----- phishing -----
-  { ph: true, from: 'SMS · +1 (705) 555-0142', body: 'Lakehead Credit Union: your account is LOCKED. Verify within 1 hour: <span class="lk">lakehead-cu-secure.co/login</span>', why: 'Urgent lock-out plus a link to a look-alike domain.' },
-  { ph: true, from: 'Dana Morgan, CEO <dana.lakehead.ceo@outlook.com>', body: 'Need you to wire $4,800 to a new vendor today. I’m in meetings, keep this between us. Bank details attached.', why: 'A "CEO" on a personal account, secrecy and a money transfer.' },
-  { ph: true, from: 'IT Support <it-support@lakeheadlogistlcs.ca>', body: 'Your password expires today. Keep your current password here to avoid losing access: <span class="lk">lakeheadlogistlcs.ca/keep-password</span>', why: 'Look closely: "logistlcs" uses an L instead of an i. Real IT never asks you to type your password into a link.' },
-  { ph: true, from: 'SMS · +1 (249) 555-0198', body: 'NorthPost: your parcel is on hold due to an unpaid $1.99 customs fee. Pay now: <span class="lk">northpost-redelivery.info</span>', why: 'A tiny fee is bait to steal card numbers, and the link isn’t the courier’s site.' },
-  { ph: true, from: 'Payroll <payroll@lakeheadlogistics.ca.hr-portal.net>', body: 'Your pay stub is ready. Sign in to view it before Friday: <span class="lk">lakeheadlogistics.ca.hr-portal.net</span>', why: 'The real domain is the last part before the first slash: hr-portal.net, not lakeheadlogistics.ca.' },
-  { ph: true, from: 'Canada Benefits Office <refunds@cra-refund-online.com>', body: 'You are owed a tax refund of $612.40. Click to accept by Interac e-Transfer within 24 hours: <span class="lk">cra-refund-online.com/claim</span>', why: 'Government agencies don’t send refunds through an email link, and the deadline is there to rush you.' },
-  { ph: true, from: 'Jordan Reyes <jordan.reyes.work@gmail.com>', body: 'Hey, I lost my phone. Can you text me the 6-digit code you’re about to receive? I need it to get back into my account.', why: 'Nobody legit asks for your MFA or verification code. That code is the key to your account.' },
-  { ph: true, from: 'StreamBox <billing@streambox-accounts.support>', body: 'Your payment failed and your account will be closed today. Update your card: <span class="lk">streambox-accounts.support/update</span>', why: 'Threat of closing your account, plus a link to a strange domain asking for card details.' },
-  { ph: true, from: 'Shared Files <no-reply@docshare-secure.net>', body: 'Mike Chen shared "Q4 Salaries - CONFIDENTIAL.xlsx" with you. Sign in with your work email and password to open it.', why: 'A juicy file name to make you curious, and a login page outside the company.' },
-  { ph: true, from: 'Help Desk <helpdesk@lakeheadlogistics.ca>', body: 'Hi, this is Sam from IT. We’re upgrading your laptop tonight. Reply with your username and password so we can set it up.', why: 'Even from a real address (accounts get hacked), no IT team ever needs your password.' },
-  { ph: true, from: 'SMS · +1 (705) 555-0177', body: 'Congrats! You’ve been selected for a $500 Gift Card from SooMart. Claim before midnight: <span class="lk">soomart-winner.club</span>', why: 'A prize you never entered for, a deadline and an odd link.' },
-  { ph: true, from: 'Accounts Payable <ap@lakehead-logistics.ca>', body: 'Our banking details have changed. Please send all future invoice payments to the new account below, effective today.', why: 'Note the extra hyphen: lakehead-logistics.ca isn’t the real domain. Changed bank details should always be confirmed by phone.' },
+  { ph: true, from: 'SMS · +1 (705) 555-0142', body: 'Lakehead Credit Union: your account is LOCKED. Verify within 1 hour: <span class="lk">lakehead-cu-secure.co/login</span>', why: 'Urgent lock-out plus a link to a look-alike domain.', flag: 'lakehead-cu-secure.co/login' },
+  { ph: true, from: 'Dana Morgan, CEO <dana.lakehead.ceo@outlook.com>', body: 'Need you to wire $4,800 to a new vendor today. I’m in meetings, keep this between us. Bank details attached.', why: 'A "CEO" on a personal account, secrecy and a money transfer.', flag: 'dana.lakehead.ceo@outlook.com', in: 'from' },
+  { ph: true, from: 'IT Support <it-support@lakeheadlogistlcs.ca>', body: 'Your password expires today. Keep your current password here to avoid losing access: <span class="lk">lakeheadlogistlcs.ca/keep-password</span>', why: 'Look closely: "logistlcs" uses an L instead of an i. Real IT never asks you to type your password into a link.', flag: 'lakeheadlogistlcs.ca/keep-password' },
+  { ph: true, from: 'SMS · +1 (249) 555-0198', body: 'NorthPost: your parcel is on hold due to an unpaid $1.99 customs fee. Pay now: <span class="lk">northpost-redelivery.info</span>', why: 'A tiny fee is bait to steal card numbers, and the link isn’t the courier’s site.', flag: 'northpost-redelivery.info' },
+  { ph: true, from: 'Payroll <payroll@lakeheadlogistics.ca.hr-portal.net>', body: 'Your pay stub is ready. Sign in to view it before Friday: <span class="lk">lakeheadlogistics.ca.hr-portal.net</span>', why: 'The real domain is the last part before the first slash: hr-portal.net, not lakeheadlogistics.ca.', flag: 'lakeheadlogistics.ca.hr-portal.net' },
+  { ph: true, from: 'Canada Benefits Office <refunds@cra-refund-online.com>', body: 'You are owed a tax refund of $612.40. Click to accept by Interac e-Transfer within 24 hours: <span class="lk">cra-refund-online.com/claim</span>', why: 'Government agencies don’t send refunds through an email link, and the deadline is there to rush you.', flag: 'cra-refund-online.com/claim' },
+  { ph: true, from: 'Jordan Reyes <jordan.reyes.work@gmail.com>', body: 'Hey, I lost my phone. Can you text me the 6-digit code you’re about to receive? I need it to get back into my account.', why: 'Nobody legit asks for your MFA or verification code. That code is the key to your account.', flag: 'Can you text me the 6-digit code you’re about to receive?' },
+  { ph: true, from: 'StreamBox <billing@streambox-accounts.support>', body: 'Your payment failed and your account will be closed today. Update your card: <span class="lk">streambox-accounts.support/update</span>', why: 'Threat of closing your account, plus a link to a strange domain asking for card details.', flag: 'streambox-accounts.support/update' },
+  { ph: true, from: 'Shared Files <no-reply@docshare-secure.net>', body: 'Mike Chen shared "Q4 Salaries - CONFIDENTIAL.xlsx" with you. Sign in with your work email and password to open it.', why: 'A juicy file name to make you curious, and a login page outside the company.', flag: 'Sign in with your work email and password to open it.' },
+  { ph: true, from: 'Help Desk <helpdesk@lakeheadlogistics.ca>', body: 'Hi, this is Sam from IT. We’re upgrading your laptop tonight. Reply with your username and password so we can set it up.', why: 'Even from a real address (accounts get hacked), no IT team ever needs your password.', flag: 'Reply with your username and password' },
+  { ph: true, from: 'SMS · +1 (705) 555-0177', body: 'Congrats! You’ve been selected for a $500 Gift Card from SooMart. Claim before midnight: <span class="lk">soomart-winner.club</span>', why: 'A prize you never entered for, a deadline and an odd link.', flag: 'soomart-winner.club' },
+  { ph: true, from: 'Accounts Payable <ap@lakehead-logistics.ca>', body: 'Our banking details have changed. Please send all future invoice payments to the new account below, effective today.', why: 'Note the extra hyphen: lakehead-logistics.ca isn’t the real domain. Changed bank details should always be confirmed by phone.', flag: 'lakehead-logistics.ca', in: 'from' },
 
   // ----- legit -----
   { ph: false, from: 'Facilities <facilities@lakeheadlogistics.ca>', body: 'Heads up: fire drill Thursday at 10 a.m. Please use the east stairwell. No action needed.', why: 'Real company domain, no link, nothing asked of you.' },
@@ -154,17 +268,44 @@ function pickMail() {
   return shuffle(pick);
 }
 let MAIL = pickMail();
-let mi = 0, mailLock = false;
-function renderMail() { const m = MAIL[mi]; $('p4').textContent = 'Message ' + (mi + 1) + ' of ' + MAIL.length; const box = $('mail'); box.textContent = ''; const f = document.createElement('div'); f.className = 'from'; f.textContent = 'From: ' + m.from; const b = document.createElement('div'); b.innerHTML = m.body; box.append(f, b); }
+let mi = 0, mailLock = false, hunting = false, huntT = null, flagsFound = 0, phishRight = 0;
+function renderMail() {
+  const m = MAIL[mi]; $('p4').textContent = 'Message ' + (mi + 1) + ' of ' + MAIL.length;
+  const box = $('mail'); box.textContent = ''; box.classList.remove('hunt');
+  const f = document.createElement('div'); f.className = 'from'; const b = document.createElement('div');
+  const from = 'From: ' + m.from;
+  if (m.ph && m.in === 'from') { const k = from.indexOf(m.flag), rf = document.createElement('span'); rf.className = 'rf'; rf.textContent = m.flag; f.append(from.slice(0, k), rf, from.slice(k + m.flag.length)); }
+  else f.textContent = from;
+  b.innerHTML = m.ph && m.in !== 'from' ? m.body.replace(m.flag, '<span class="rf">' + m.flag + '</span>') : m.body;
+  box.append(f, b);
+}
+function nextMail(ms) { setTimeout(() => { mailLock = false; mi++; if (mi >= MAIL.length) reward(4); else { renderMail(); $('m4').textContent = ''; } }, ms); }
 document.querySelectorAll('[data-ph]').forEach(btn => btn.addEventListener('click', () => {
   if (stage !== 4 || mailLock) return;
   const m = MAIL[mi], ok = (btn.dataset.ph === '1') === m.ph;
+  mailLock = true;
+  if (ok) { phishRight++; good(); } else { addPen(10, 'wrong call'); bad($('mail')); }
+  if (ok && m.ph) {
+    // Bonus: find the exact red flag before the timer runs out.
+    hunting = true; $('mail').classList.add('hunt');
+    $('m4').className = 'msg info'; $('m4').textContent = 'Correct, it’s phishing! BONUS: tap the red flag in the message for \u22125s.';
+    huntT = setTimeout(() => endHunt(false, true), 6000);
+    return;
+  }
   $('m4').className = 'msg ' + (ok ? 'good' : 'bad');
   $('m4').textContent = (ok ? 'Correct. ' : 'Wrong, +10s. ') + (m.ph ? 'Phishing: ' : 'Legit: ') + m.why;
-  if (!ok) { addPen(10, 'wrong call'); bad($('mail')); }
-  mailLock = true;
-  setTimeout(() => { mailLock = false; mi++; if (mi >= MAIL.length) reward(4); else { renderMail(); $('m4').textContent = ''; } }, ok ? 1100 : 2200);
+  if (m.ph) $('mail').querySelector('.rf').classList.add('show');
+  nextMail(ok ? 1300 : 2600);
 }));
+function endHunt(found, timeout) {
+  if (!hunting) return; hunting = false; clearTimeout(huntT); $('mail').classList.remove('hunt');
+  $('mail').querySelector('.rf').classList.add(found ? 'got' : 'show');
+  if (found) { flagsFound++; addBonus(5, 'red flag'); good(); ding(); }
+  $('m4').className = 'msg ' + (found ? 'good' : 'info');
+  $('m4').textContent = (found ? 'Red flag found, \u22125s! ' : timeout ? 'Bonus time’s up. ' : 'Not quite, it’s highlighted now. ') + MAIL[mi].why;
+  nextMail(found ? 1900 : 2800);
+}
+$('mail').addEventListener('click', e => { if (hunting) endHunt(!!e.target.closest('.rf')); });
 
 /* ---------- answers + hints ---------- */
 document.querySelectorAll('[data-submit]').forEach(b => b.addEventListener('click', () => submit(+b.dataset.submit)));
@@ -172,28 +313,37 @@ document.querySelectorAll('[data-submit]').forEach(b => b.addEventListener('clic
 function submit(n) {
   if (n === 1 && stage === 1) {
     const v = $('a1').value.trim().toUpperCase();
-    if (v === VAULT[0] || v === WORDS[+VAULT[0]]) reward(1);
+    if (v === VAULT[0] || v === WORDS[+VAULT[0]]) { good(); reward(1); }
     else { addPen(10, 'wrong answer'); $('m1').className = 'msg bad'; $('m1').textContent = +$('shift').value === KEY ? 'Read the decoded note again: the digit is spelled out.' : 'Not yet. Keep turning the dial until the note is readable.'; bad($('a1')); }
   }
   if (n === 2 && stage === 2) {
     const v = $('a2').value.trim();
-    if (/^biscuit2019!?$/i.test(v)) reward(2);
-    else { addPen(10, 'access denied'); $('m2').className = 'msg bad'; $('m2').textContent = 'ACCESS DENIED. ' + (/biscuit/i.test(v) ? 'Right name. What about the year Biscuit came home?' : 'Look for something Jordan clearly loves.'); bad($('a2')); }
+    if (P.pass.test(v)) { good(); reward(2); }
+    else { addPen(10, 'access denied'); $('m2').className = 'msg bad'; $('m2').textContent = 'ACCESS DENIED. ' + (P.near.test(v) ? P.nearMsg : P.far); bad($('a2')); }
   }
 }
 document.querySelectorAll('[data-hint]').forEach(b => b.addEventListener('click', () => { const n = b.dataset.hint; if ($('h' + n).hidden) { addPen(30, 'hint'); $('h' + n).hidden = false; b.disabled = true; } }));
 
 /* ---------- rewards ---------- */
-const RW = {
-  1: ['Note decrypted', 'Cipher cracked', 'A Caesar cipher only has 25 possible keys, so a computer breaks it instantly. Real encryption has more possible keys than there are atoms in the universe.'],
-  2: ['Account compromised', 'You’re in as Jordan', 'Pet name + year: found in two posts. Long random passphrases and a password manager stop this. So does multi-factor authentication.'],
-  3: ['Intruder located', 'Gotcha: 203.0.113.66', 'A burst of failed logins then a success is a brute-force attack. Account lockouts and alerts on patterns like this are a defender’s bread and butter.'],
-  4: ['Inbox secured', 'Phish caught', 'Urgency, secrecy, look-alike domains and money requests are the classic tells. Phishing is still the number one way attackers get in.']
+const JOBS = {
+  1: ['Cryptographer', 'Designs the encryption that protects online banking, messaging apps and every “https” website.'],
+  2: ['Penetration tester', 'Gets paid to break into companies, just like you did, then shows them how to fix the holes.'],
+  3: ['SOC analyst', 'Works in a Security Operations Centre, watching logs and alerts to catch attackers in real time.'],
+  4: ['Security awareness lead', 'Teaches staff to spot scams and runs fake phishing tests to see who clicks.']
 };
+function rw(n) {
+  return {
+    1: ['Note decrypted', 'Cipher cracked', 'A Caesar cipher only has 25 possible keys, so a computer breaks it instantly. Real encryption has more possible keys than there are atoms in the universe.'],
+    2: ['Account compromised', 'You’re in as ' + first(), P.lesson + ' Long random passphrases and a password manager stop this. So does multi-factor authentication.'],
+    3: ['Intruder located', 'Gotcha: ' + ATTACKER, 'A burst of failed logins then a success is a brute-force attack. Account lockouts and alerts on patterns like this are a defender’s bread and butter.'],
+    4: ['Inbox secured', 'Phish caught', 'Urgency, secrecy, look-alike domains and money requests are the classic tells. Phishing is still the number one way attackers get in.']
+  }[n];
+}
 function reward(n) {
-  chime();
-  $('rwKick').textContent = 'Defence 0' + n + ' cleared · ' + RW[n][0];
-  $('rwTitle').textContent = RW[n][1]; $('rwText').textContent = RW[n][2];
+  chime(); const r = rw(n);
+  $('rwKick').textContent = 'Defence 0' + n + ' cleared · ' + r[0];
+  $('rwTitle').textContent = r[1]; $('rwText').textContent = r[2];
+  $('rwJob').textContent = JOBS[n][0]; $('rwJobText').textContent = JOBS[n][1];
   $('rwLbl').textContent = 'VAULT DIGIT ' + n; $('rwDig').textContent = VAULT[n - 1];
   $('rwNext').textContent = n < 4 ? 'Next defence →' : 'Go to the vault →';
   stage = n + 1; pips(); liveSet(stage); show('reward'); $('rwNext').focus();
@@ -201,7 +351,7 @@ function reward(n) {
 $('rwNext').addEventListener('click', () => {
   if (stage === 2) { show('s2'); $('a2').focus(); }
   else if (stage === 3) show('s3');
-  else if (stage === 4) { MAIL = pickMail(); mi = 0; renderMail(); $('m4').textContent = ''; show('s4'); }
+  else if (stage === 4) { MAIL = pickMail(); mi = 0; flagsFound = 0; phishRight = 0; renderMail(); $('m4').textContent = ''; show('s4'); }
   else if (stage === 5) { entry = ''; renderSlots(); $('collected').textContent = VAULT.split('').join(' '); show('vault'); }
 });
 
@@ -219,20 +369,44 @@ function press(k) {
   renderSlots();
   if (entry.length < 4) return;
   if (entry === VAULT) {
-    vaultBusy = true; running = false; liveDone(); finalSecs = Math.round(elapsed()); clearInterval(ticking); $('clock').textContent = fmt(finalSecs);
+    good(); vaultBusy = true; running = false; liveDone(); finalSecs = Math.round(elapsed()); clearInterval(ticking); $('clock').textContent = fmt(finalSecs);
     $('door').classList.add('open'); $('m5').className = 'msg good'; $('m5').textContent = 'VAULT OPEN'; chime(); setTimeout(chime, 400);
     setTimeout(() => { vaultBusy = false; finish(); }, reduce ? 300 : 1600);
   } else { addPen(10, 'wrong code'); $('m5').className = 'msg bad'; $('m5').textContent = 'WRONG CODE. Enter the digits in the order you collected them.'; bad($('slots')); entry = ''; setTimeout(renderSlots, 300); }
 }
 
+/* ---------- ranks + badges ---------- */
+const RANKS = [[60, 'Red Team Lead'], [90, 'Penetration Tester'], [120, 'Threat Hunter'], [180, 'Security Analyst'], [300, 'Junior Analyst'], [Infinity, 'Script Kiddie']];
+const rankOf = x => RANKS.find(r => x <= r[0])[1];
+// The "line to beat" from config.js, e.g. { name: 'Mr. Laitinen', time: '2:41' }.
+const INSTR = (() => { const i = (window.OV_CONFIG && window.OV_CONFIG.instructor) || {}, m = String(i.time || '').match(/^(\d+):(\d\d)$/); return m ? { name: String(i.name || 'Instructor'), secs: +m[1] * 60 + +m[2] } : null; })();
+let badgeList = [], bonusDone = false, bonusSecs = 0;
+function renderBadges() {
+  const b = [];
+  if (!mistakes && !hintsUsed) b.push('Flawless'); else if (!hintsUsed) b.push('No hints');
+  if (phishRight === MAIL.length && flagsFound === MAIL.filter(m => m.ph).length) b.push('Phish spotter');
+  if (finalSecs < 60) b.push('Under 1:00');
+  if (bestStreak >= 5) b.push('On a roll');
+  if (INSTR && finalSecs < INSTR.secs) b.push('Beat ' + INSTR.name);
+  if (bonusDone) b.push('Hash cracker');
+  badgeList = b;
+  const box = $('badges'); box.textContent = '';
+  b.forEach(t => { const s = document.createElement('span'); s.className = 'badge'; s.textContent = t; box.appendChild(s); });
+  box.hidden = !b.length;
+}
+
 /* ---------- finish + leaderboard ---------- */
-let posted = false;
+let posted = false, postedId = null;
 async function finish() {
   stage = 6; pips(); show('done');
   $('finalTime').textContent = fmt(finalSecs);
-  $('finalBreak').textContent = penalty > 0 ? 'Includes ' + Math.round(penalty) + 's of penalties.' : 'No penalties. Clean run.';
+  $('finalBreak').textContent = (penSecs ? 'Includes ' + penSecs + 's of penalties' : 'No penalties. Clean run') + (bonusSecsWon ? (penSecs ? ' and ' : '. Plus ') + bonusSecsWon + 's of red-flag bonuses.' : '.');
   $('combo').textContent = VAULT.split('').join('-');
-  posted = false; $('saveMsg').textContent = ''; $('nameIn').value = liveName; $('saveBtn').disabled = false;
+  $('rankT').textContent = rankOf(finalSecs).toUpperCase(); renderBadges();
+  $('profLine').hidden = !INSTR;
+  if (INSTR) $('profLine').textContent = finalSecs < INSTR.secs ? '★ You beat ' + INSTR.name + '’s time of ' + fmt(INSTR.secs) + '!' : INSTR.name + ' did it in ' + fmt(INSTR.secs) + '. ' + (finalSecs - INSTR.secs) + ' seconds to go. Play again?';
+  $('bonusCard').hidden = !bonusOK; $('bonusGo').disabled = false; $('bonusGo').textContent = 'Start the bonus round →';
+  posted = false; postedId = null; $('saveMsg').textContent = ''; $('nameIn').value = liveName; $('saveBtn').disabled = false;
   posterReset(); leadReset(); $('wantedCard').hidden = KIOSK;
   const db = await dbReady;
   $('saveDirect').hidden = !db; $('saveOff').hidden = !!db;
@@ -249,8 +423,9 @@ $('saveBtn').addEventListener('click', async () => {
   $('saveBtn').disabled = true; m.className = 'msg info'; m.textContent = 'Posting…';
   const secs = Math.max(25, Math.min(3600, finalSecs));
   try {
-    const id = await db.addRun(name, secs, dayKey());
-    posted = true;
+    const extra = {}; if (school) extra.school = school; if (bonusDone) extra.bonus = true;
+    const id = await db.addRun(name, secs, dayKey(), extra);
+    posted = true; postedId = id;
     let rank = null; try { const rows = await db.listDay(dayKey()); rank = rows.findIndex(r => r.id === id) + 1 || null; } catch (e) {}
     m.className = 'msg good'; m.textContent = 'Posted. Look at the big screen!' + (rank ? ' You’re #' + rank + ' today.' : '');
   } catch (e) {
@@ -259,12 +434,56 @@ $('saveBtn').addEventListener('click', async () => {
 });
 $('nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('saveBtn').click(); });
 
+/* ---------- bonus round: crack the hash ---------- */
+// A dictionary attack: hash words from a leaked list until one matches the
+// stolen hash. The clue narrows it to two words; the rest cost 5s each.
+const HASH_OK = ['dragon12', 'sunshin3', 'monkey99', 'hockey22', 'qwerty12', 'soccer10', 'pass1234', 'summer24'];
+const HASH_NO = ['password', '123456', 'letmein', 'iloveyou', 'football', 'welcome1!', 'trustno1x', 'princess', 'baseball1', 'master123', 'shadow', 'sunshine'];
+const bonusOK = !!(window.crypto && crypto.subtle && window.TextEncoder);
+const sha256 = async w => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(w)))].map(x => x.toString(16).padStart(2, '0')).join('');
+let bT0 = 0, bPenalty = 0, bTick = null, bTarget = '', bLive = false;
+const bElapsed = () => (performance.now() - bT0) / 1000 + bPenalty;
+async function startBonus() {
+  const ok = shuffle(HASH_OK.slice()).slice(0, 2), list = shuffle(ok.concat(shuffle(HASH_NO.slice()).slice(0, 8)));
+  bTarget = await sha256(ok[0]);
+  $('hTarget').textContent = bTarget.slice(0, 28) + '…'; $('m6').textContent = ''; $('bPen').textContent = '';
+  const box = $('words'); box.textContent = '';
+  list.forEach(w => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'word';
+    const a = document.createElement('span'); a.className = 'w'; a.textContent = w;
+    const h = document.createElement('span'); h.className = 'h'; h.textContent = 'tap to hash';
+    b.append(a, h); b.addEventListener('click', () => tryWord(b, w, h)); box.appendChild(b);
+  });
+  bT0 = performance.now(); bPenalty = 0; bLive = true; clearInterval(bTick);
+  bTick = setInterval(() => { if (bLive) $('bClock').textContent = fmt(bElapsed()); }, 250);
+  show('bonus');
+}
+async function tryWord(b, w, h) {
+  if (!bLive || b.disabled) return; b.disabled = true;
+  const x = await sha256(w); h.textContent = x.slice(0, 28) + '…';
+  if (x !== bTarget) {
+    b.classList.add('wrong'); bPenalty += 5; buzz();
+    const p = $('bPen'); p.textContent = '+5s'; clearTimeout(p._t); p._t = setTimeout(() => p.textContent = '', 1200);
+    $('m6').className = 'msg bad'; $('m6').textContent = (w.length !== 8 || !/\d/.test(w)) ? '“' + w + '” breaks the password rules. Check the clue!' : 'Hashes don’t match. Try another.';
+    return;
+  }
+  b.classList.add('right'); bLive = false; clearInterval(bTick); bonusSecs = Math.round(bElapsed()); $('bClock').textContent = fmt(bonusSecs);
+  bonusDone = true; chime(); renderBadges();
+  if (posted && postedId) dbReady.then(db => db && db.markBonus(postedId)).catch(() => {});
+  $('m6').className = 'msg good'; $('m6').textContent = 'CRACKED in ' + fmt(bonusSecs) + '! The password was “' + w + '”. That’s a dictionary attack, and it’s why your password should never be a common word plus a number.';
+  $('bonusGo').disabled = true; $('bonusGo').textContent = '★ Cracked in ' + fmt(bonusSecs);
+  $('m6').scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+  if (posterUrl) makePoster();
+}
+$('bonusGo').addEventListener('click', () => { audio(); startBonus(); });
+$('bonusBack').addEventListener('click', () => { bLive = false; clearInterval(bTick); show('done'); });
+
 /* ---------- wanted poster ---------- */
 // Drawn on the player's own phone. The photo never leaves the device.
 const PROGRAM_URL = 'https://www.saultcollege.ca/programs/information-technology-studies/computer-networking-and-cyber-security';
 let posterPhoto = null, posterBlob = null, posterUrl = '', caseNo = '';
 const posterName = () => { const n = cleanName($('nameIn').value); return n && isAppropriate(n) ? n : liveName || 'Unknown hacker'; };
-const caption = () => 'I cracked the vault in ' + fmt(finalSecs) + ' at the Sault College Cyber Security booth. Think you can catch me? ' + PROGRAM_URL;
+const caption = () => 'I cracked the vault in ' + fmt(finalSecs) + ' (rank: ' + rankOf(finalSecs) + ')' + (school ? ' for ' + school : '') + ' at the Sault College Cyber Security booth. Think you can catch me? ' + PROGRAM_URL;
 async function posterFonts() {
   const want = ['400 100px Anton', '700 30px "JetBrains Mono"', '400 30px "JetBrains Mono"', '700 40px "IBM Plex Sans"'];
   try { await Promise.race([Promise.all(want.map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 2500))]); } catch (e) {}
@@ -284,11 +503,11 @@ function drawPoster() {
   c.font = '700 30px ' + MONO; const sub = 'FOR BREAKING INTO THE VAULT', sw = c.measureText(sub).width;
   c.fillText(sub, W / 2, 300); c.lineWidth = 3; c.beginPath(); c.moveTo(80, 290); c.lineTo(W / 2 - sw / 2 - 20, 290); c.moveTo(W / 2 + sw / 2 + 20, 290); c.lineTo(W - 80, 290); c.stroke();
   // mugshot height chart
-  const PX = 150, PY = 330, PW = 780, PH = 500, BX = 290, BW = 500;
+  const PX = 150, PY = 330, PW = 780, PH = 430, BX = 305, BW = 470;
   c.fillStyle = '#D6CAAB'; c.fillRect(PX, PY, PW, PH);
   c.strokeStyle = 'rgba(27,26,23,.45)'; c.fillStyle = 'rgba(27,26,23,.65)'; c.lineWidth = 2; c.font = '700 18px ' + MONO;
   for (let i = 0; i <= 10; i++) {
-    const y = PY + 42 + i * 44, inch = 78 - i * 3, lab = Math.floor(inch / 12) + '′' + (inch % 12) + '″';
+    const y = PY + 34 + i * 38, inch = 78 - i * 3, lab = Math.floor(inch / 12) + '′' + (inch % 12) + '″';
     c.beginPath(); c.moveTo(PX, y); c.lineTo(PX + PW, y); c.stroke();
     c.textAlign = 'left'; c.fillText(lab, PX + 10, y - 6); c.textAlign = 'right'; c.fillText(lab, PX + PW - 10, y - 6);
   }
@@ -302,21 +521,30 @@ function drawPoster() {
     c.strokeStyle = INK; c.lineWidth = 4; c.strokeRect(BX, PY, BW, PH);
   } else {
     c.fillStyle = '#2B2924';
-    c.beginPath(); c.ellipse(W / 2, PY + PH + 40, 220, 230, 0, Math.PI, 0); c.fill();
-    c.beginPath(); c.arc(W / 2, PY + 190, 100, 0, Math.PI * 2); c.fill();
-    c.fillStyle = '#D6CAAB'; c.textAlign = 'center'; c.font = '400 130px ' + ANTON; c.fillText('?', W / 2, PY + 238);
+    c.beginPath(); c.ellipse(W / 2, PY + PH + 30, 200, 200, 0, Math.PI, 0); c.fill();
+    c.beginPath(); c.arc(W / 2, PY + 165, 90, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#D6CAAB'; c.textAlign = 'center'; c.font = '400 130px ' + ANTON; c.fillText('?', W / 2, PY + 212);
   }
   c.strokeStyle = INK; c.lineWidth = 6; c.strokeRect(PX, PY, PW, PH);
   // booking placard
   c.fillStyle = INK; c.fillRect(W / 2 - 230, PY + PH - 40, 460, 66);
   c.fillStyle = PAPER; c.textAlign = 'center'; c.font = '700 26px ' + MONO; c.fillText('CASE OV-' + caseNo + ' · ' + dayKey(), W / 2, PY + PH + 3);
-  // name, time, last seen
-  const nm = posterName().toUpperCase(); let fs = 130;
+  // name, time, rank, badges, last seen
+  const nm = posterName().toUpperCase(); let fs = 120;
   c.fillStyle = INK; do { c.font = '400 ' + fs + 'px ' + ANTON; fs -= 4; } while (c.measureText(nm).width > W - 160 && fs > 48);
-  c.fillText(nm, W / 2, 1000);
-  c.font = '700 46px ' + PLEX; const a = 'Cracked the vault in ', b = fmt(finalSecs), wa = c.measureText(a).width, wb = c.measureText(b).width;
-  c.textAlign = 'left'; c.fillText(a, W / 2 - (wa + wb) / 2, 1066); c.fillStyle = RED; c.fillText(b, W / 2 - (wa + wb) / 2 + wa, 1066);
-  c.textAlign = 'center'; c.fillStyle = '#4A4436'; c.font = '400 30px ' + MONO; c.fillText('Last seen at Sault College', W / 2, 1114);
+  c.fillText(nm, W / 2, 905);
+  c.font = '700 44px ' + PLEX; const a = 'Cracked the vault in ', b = fmt(finalSecs), wa = c.measureText(a).width, wb = c.measureText(b).width;
+  c.textAlign = 'left'; c.fillText(a, W / 2 - (wa + wb) / 2, 963); c.fillStyle = RED; c.fillText(b, W / 2 - (wa + wb) / 2 + wa, 963);
+  c.textAlign = 'center'; c.fillStyle = RED; c.font = '700 30px ' + MONO; c.fillText('RANK: ' + rankOf(finalSecs).toUpperCase(), W / 2, 1010);
+  if (badgeList.length) {
+    const pad = 16, gap = 12; let bs = 24, total;
+    do { bs -= 2; c.font = '700 ' + bs + 'px ' + MONO; total = badgeList.reduce((p, t) => p + c.measureText(t.toUpperCase()).width + pad * 2, 0) + gap * (badgeList.length - 1); } while (total > W - 140 && bs > 14);
+    let x = W / 2 - total / 2;
+    badgeList.forEach(t => { const w = c.measureText(t.toUpperCase()).width + pad * 2; c.strokeStyle = INK; c.lineWidth = 3; c.strokeRect(x, 1030, w, 40); c.fillStyle = INK; c.fillText(t.toUpperCase(), x + w / 2, 1058); x += w + gap; });
+  }
+  c.fillStyle = '#4A4436'; let ls = 28; const seen = school ? 'Representing ' + school + ' · last seen at Sault College' : 'Last seen at Sault College';
+  do { c.font = '400 ' + ls + 'px ' + MONO; ls -= 2; } while (c.measureText(seen).width > W - 140 && ls > 16);
+  c.fillText(seen, W / 2, 1114);
   // footer: program + QR code to the program page
   const FY = 1150, FH = H - 42 - FY; c.fillStyle = INK; c.fillRect(42, FY, W - 84, FH);
   c.textAlign = 'left'; c.fillStyle = PAPER; c.font = '400 46px ' + ANTON; c.fillText('THINK YOU COULD CATCH THEM?', 76, FY + 62);
@@ -404,6 +632,7 @@ $('leadSend').addEventListener('click', async () => {
   const db = await dbReady; if (!db) { m.className = 'msg bad'; m.textContent = 'Can’t connect right now. Ask the booth staff for program info.'; return; }
   const lead = { name, contact: c.contact, kind: c.kind, event: String((window.OV_CONFIG && window.OV_CONFIG.event) || 'Booth').slice(0, 80), day: dayKey(), consent: CONSENT };
   if ($('leadWho').value) lead.who = $('leadWho').value;
+  if (school) lead.school = school;
   $('leadSend').disabled = true; m.className = 'msg info'; m.textContent = 'Sending…';
   try {
     await db.addLead(lead);
@@ -414,15 +643,16 @@ $('leadSend').addEventListener('click', async () => {
 
 /* ---------- reset + booth tablet idle (index.html?kiosk) ---------- */
 function resetStages() {
+  newCipher(); newPerson(); newLog();
   $('shift').value = 0; renderCipher(); ['a1', 'a2'].forEach(id => $(id).value = '');
   ['m1', 'm2', 'm3', 'm4', 'm5'].forEach(id => $(id).textContent = '');
   [1, 2, 3].forEach(n => { $('h' + n).hidden = true; document.querySelector('[data-hint="' + n + '"]').disabled = false; });
-  buildLog(); mi = 0; entry = ''; renderSlots(); $('door').classList.remove('open');
+  buildLog(); mi = 0; flagsFound = 0; phishRight = 0; hunting = false; clearTimeout(huntT); entry = ''; renderSlots(); $('door').classList.remove('open');
 }
-function reset() { liveStop(); posterReset(); leadReset(); if (KIOSK) $('codeIn').value = ''; running = false; clearInterval(ticking); stage = 0; $('hud').hidden = true; $('clock').textContent = '0:00'; resetStages(); show('intro'); }
+function reset() { liveStop(); posterReset(); leadReset(); bLive = false; clearInterval(bTick); if (KIOSK) { $('codeIn').value = ''; school = ''; drawSchools(); } running = false; clearInterval(ticking); stage = 0; $('hud').hidden = true; $('clock').textContent = '0:00'; resetStages(); show('intro'); }
 $('againBtn').addEventListener('click', reset);
 let idle = null;
 function armIdle() { if (!KIOSK) return; clearTimeout(idle); if (stage > 0) idle = setTimeout(reset, stage === 6 ? 60000 : 180000); }
 ['pointerdown', 'keydown', 'input'].forEach(ev => document.addEventListener(ev, armIdle, { passive: true }));
 
-renderCipher(); buildLog();
+newCipher(); newPerson(); newLog(); renderCipher(); buildLog();

@@ -44,7 +44,9 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 /* ---------- leaderboard ---------- */
 let rows = [], manage = false, staff = false, db = null;
-function note(t) { $('boardNote').hidden = !t; $('boardNote').textContent = t || ''; }
+// The live-map warning sticks until reload, so leaderboard updates don't wipe it.
+let liveErr = '';
+function note(t) { t = t || liveErr; $('boardNote').hidden = !t; $('boardNote').textContent = t; }
 function render(freshIds = new Set()) {
   const list = $('boardList'); list.textContent = '';
   $('boardEmpty').hidden = rows.length > 0;
@@ -190,7 +192,7 @@ $('manageBtn').addEventListener('click', () => { manage = !manage; $('manageBtn'
         track(row, firstLive); live.set(row.id, row);
       });
       firstLive = false; drawMap();
-    }, () => note('Live map stopped. Check that the latest firestore.rules are published, then reload.'));
+    }, () => { liveErr = 'Live map stopped. Check that the latest firestore.rules are published, then reload.'; note(); });
     unsub = db.watchDay(day, (r, added) => {
       rows = r; note('');
       const fresh = new Set();

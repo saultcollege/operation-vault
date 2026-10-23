@@ -18,6 +18,11 @@ window.OV_CONFIG = {
   appId: "1:18731280819:web:957e2f1ee168b4376503c6"
   },
 
+  // Name of the event you're at. It's saved with every "send me program
+  // info" sign-up so recruitment can tell events apart in the export.
+  // Change it before each event, e.g. 'Fall Open House 2026'.
+  event: 'Booth',
+
   // Optional: the address the big-screen QR code should open.
   // Leave empty to use this site's own index.html automatically.
   playUrl: ''

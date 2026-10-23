@@ -17,6 +17,7 @@ export async function initDb() {
     const auth = au.getAuth(app);
     const runs = fs.collection(store, 'runs');
     const live = fs.collection(store, 'live');
+    const leads = fs.collection(store, 'leads');
     const rowOf = d => {
       const x = d.data({ serverTimestamps: 'estimate' });
       return { id: d.id, name: x.name, secs: x.secs, day: x.day, at: x.at && x.at.toMillis ? x.at.toMillis() : Date.now() };
@@ -50,6 +51,12 @@ export async function initDb() {
         return fs.onSnapshot(fs.query(live, fs.where('day', '==', day)), snap => {
           onChange(snap.docs.map(liveOf), snap.docChanges().map(c => ({ type: c.type, row: liveOf(c.doc) })));
         }, onError);
+      },
+      // Program info opt-ins. Anyone can add one; only staff can read them.
+      addLead: lead => fs.addDoc(leads, { ...lead, at: fs.serverTimestamp() }),
+      async listLeads() {
+        const snap = await fs.getDocs(leads);
+        return snap.docs.map(d => { const x = d.data(); return { ...x, id: d.id, at: x.at && x.at.toMillis ? x.at.toMillis() : 0 }; });
       },
       deleteRun: id => fs.deleteDoc(fs.doc(store, 'runs', id)),
       signIn: (email, pw) => au.signInWithEmailAndPassword(auth, email, pw),

@@ -233,8 +233,10 @@ async function finish() {
   $('finalBreak').textContent = penalty > 0 ? 'Includes ' + Math.round(penalty) + 's of penalties.' : 'No penalties. Clean run.';
   $('combo').textContent = VAULT.split('').join('-');
   posted = false; $('saveMsg').textContent = ''; $('nameIn').value = liveName; $('saveBtn').disabled = false;
+  posterReset(); leadReset(); $('wantedCard').hidden = KIOSK;
   const db = await dbReady;
   $('saveDirect').hidden = !db; $('saveOff').hidden = !!db;
+  $('leadOn').hidden = !db; $('leadOff').hidden = !!db;
   armIdle();
 }
 $('saveBtn').addEventListener('click', async () => {
@@ -257,6 +259,151 @@ $('saveBtn').addEventListener('click', async () => {
 });
 $('nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') $('saveBtn').click(); });
 
+/* ---------- wanted poster ---------- */
+// Drawn on the player's own phone. The photo never leaves the device.
+const PROGRAM_URL = 'https://www.saultcollege.ca/programs/information-technology-studies/computer-networking-and-cyber-security';
+let posterPhoto = null, posterBlob = null, posterUrl = '', caseNo = '';
+const posterName = () => { const n = cleanName($('nameIn').value); return n && isAppropriate(n) ? n : liveName || 'Unknown hacker'; };
+const caption = () => 'I cracked the vault in ' + fmt(finalSecs) + ' at the Sault College Cyber Security booth. Think you can catch me? ' + PROGRAM_URL;
+async function posterFonts() {
+  const want = ['400 100px Anton', '700 30px "JetBrains Mono"', '400 30px "JetBrains Mono"', '700 40px "IBM Plex Sans"'];
+  try { await Promise.race([Promise.all(want.map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 2500))]); } catch (e) {}
+}
+function drawPoster() {
+  const W = 1080, H = 1350, INK = '#1B1A17', PAPER = '#EADFC4', RED = '#A8241B';
+  const MONO = '"JetBrains Mono", monospace', ANTON = 'Anton, Impact, sans-serif', PLEX = '"IBM Plex Sans", sans-serif';
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+  // aged paper
+  c.fillStyle = PAPER; c.fillRect(0, 0, W, H);
+  const vg = c.createRadialGradient(W / 2, H / 2, H * .3, W / 2, H / 2, H * .78); vg.addColorStop(0, 'rgba(120,90,40,0)'); vg.addColorStop(1, 'rgba(120,90,40,.38)'); c.fillStyle = vg; c.fillRect(0, 0, W, H);
+  for (let i = 0; i < 2200; i++) { c.fillStyle = 'rgba(60,40,20,' + (Math.random() * .09).toFixed(3) + ')'; c.fillRect(Math.random() * W, Math.random() * H, 2, 2); }
+  c.strokeStyle = INK; c.lineWidth = 6; c.strokeRect(28, 28, W - 56, H - 56); c.lineWidth = 2; c.strokeRect(42, 42, W - 84, H - 84);
+  // headline
+  c.textAlign = 'center'; c.fillStyle = INK;
+  c.font = '400 220px ' + ANTON; c.fillText('WANTED', W / 2, 250);
+  c.font = '700 30px ' + MONO; const sub = 'FOR BREAKING INTO THE VAULT', sw = c.measureText(sub).width;
+  c.fillText(sub, W / 2, 300); c.lineWidth = 3; c.beginPath(); c.moveTo(80, 290); c.lineTo(W / 2 - sw / 2 - 20, 290); c.moveTo(W / 2 + sw / 2 + 20, 290); c.lineTo(W - 80, 290); c.stroke();
+  // mugshot height chart
+  const PX = 150, PY = 330, PW = 780, PH = 500, BX = 290, BW = 500;
+  c.fillStyle = '#D6CAAB'; c.fillRect(PX, PY, PW, PH);
+  c.strokeStyle = 'rgba(27,26,23,.45)'; c.fillStyle = 'rgba(27,26,23,.65)'; c.lineWidth = 2; c.font = '700 18px ' + MONO;
+  for (let i = 0; i <= 10; i++) {
+    const y = PY + 42 + i * 44, inch = 78 - i * 3, lab = Math.floor(inch / 12) + '′' + (inch % 12) + '″';
+    c.beginPath(); c.moveTo(PX, y); c.lineTo(PX + PW, y); c.stroke();
+    c.textAlign = 'left'; c.fillText(lab, PX + 10, y - 6); c.textAlign = 'right'; c.fillText(lab, PX + PW - 10, y - 6);
+  }
+  if (posterPhoto) {
+    const iw = posterPhoto.naturalWidth, ih = posterPhoto.naturalHeight, s = Math.max(BW / iw, PH / ih), dw = iw * s, dh = ih * s;
+    c.save(); c.beginPath(); c.rect(BX, PY, BW, PH); c.clip(); c.drawImage(posterPhoto, BX + (BW - dw) / 2, PY + (PH - dh) * .35, dw, dh); c.restore();
+    // old-photo look: sepia with a little extra contrast
+    const img = c.getImageData(BX, PY, BW, PH), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const l = (d[i] * .3 + d[i + 1] * .59 + d[i + 2] * .11 - 128) * 1.15 + 128; d[i] = l + 12; d[i + 1] = l * .96 + 4; d[i + 2] = l * .82; }
+    c.putImageData(img, BX, PY);
+    c.strokeStyle = INK; c.lineWidth = 4; c.strokeRect(BX, PY, BW, PH);
+  } else {
+    c.fillStyle = '#2B2924';
+    c.beginPath(); c.ellipse(W / 2, PY + PH + 40, 220, 230, 0, Math.PI, 0); c.fill();
+    c.beginPath(); c.arc(W / 2, PY + 190, 100, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#D6CAAB'; c.textAlign = 'center'; c.font = '400 130px ' + ANTON; c.fillText('?', W / 2, PY + 238);
+  }
+  c.strokeStyle = INK; c.lineWidth = 6; c.strokeRect(PX, PY, PW, PH);
+  // booking placard
+  c.fillStyle = INK; c.fillRect(W / 2 - 230, PY + PH - 40, 460, 66);
+  c.fillStyle = PAPER; c.textAlign = 'center'; c.font = '700 26px ' + MONO; c.fillText('CASE OV-' + caseNo + ' · ' + dayKey(), W / 2, PY + PH + 3);
+  // name, time, last seen
+  const nm = posterName().toUpperCase(); let fs = 130;
+  c.fillStyle = INK; do { c.font = '400 ' + fs + 'px ' + ANTON; fs -= 4; } while (c.measureText(nm).width > W - 160 && fs > 48);
+  c.fillText(nm, W / 2, 1000);
+  c.font = '700 46px ' + PLEX; const a = 'Cracked the vault in ', b = fmt(finalSecs), wa = c.measureText(a).width, wb = c.measureText(b).width;
+  c.textAlign = 'left'; c.fillText(a, W / 2 - (wa + wb) / 2, 1066); c.fillStyle = RED; c.fillText(b, W / 2 - (wa + wb) / 2 + wa, 1066);
+  c.textAlign = 'center'; c.fillStyle = '#4A4436'; c.font = '400 30px ' + MONO; c.fillText('Last seen at Sault College', W / 2, 1114);
+  // footer: program + QR code to the program page
+  const FY = 1150, FH = H - 42 - FY; c.fillStyle = INK; c.fillRect(42, FY, W - 84, FH);
+  c.textAlign = 'left'; c.fillStyle = PAPER; c.font = '400 46px ' + ANTON; c.fillText('THINK YOU COULD CATCH THEM?', 76, FY + 62);
+  c.font = '700 28px ' + PLEX; c.fillText('Computer Networking & Cyber Security', 76, FY + 104);
+  c.fillStyle = '#B9AE92'; c.font = '400 22px ' + MONO; c.fillText('saultcollege.ca · scan for the program', 76, FY + 138);
+  try {
+    const q = window.qrcode(0, 'M'); q.addData(PROGRAM_URL); q.make();
+    const n = q.getModuleCount(), size = FH - 28, qx = W - 42 - 14 - size, qy = FY + 14, cell = (size - 12) / n;
+    c.fillStyle = '#fff'; c.fillRect(qx, qy, size, size); c.fillStyle = INK;
+    for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) if (q.isDark(r, k)) c.fillRect(qx + 6 + k * cell, qy + 6 + r * cell, Math.ceil(cell), Math.ceil(cell));
+  } catch (e) {}
+  return cv;
+}
+async function makePoster() {
+  $('posterBtn').disabled = true; $('posterMsg').textContent = '';
+  await posterFonts();
+  const cv = drawPoster();
+  posterBlob = await new Promise(r => cv.toBlob(r, 'image/jpeg', .9));
+  if (posterUrl) URL.revokeObjectURL(posterUrl);
+  posterUrl = URL.createObjectURL(posterBlob);
+  $('posterImg').src = posterUrl; $('posterImg').alt = 'WANTED poster: ' + posterName() + ', cracked the vault in ' + fmt(finalSecs) + ', last seen at Sault College.';
+  $('caption').value = caption();
+  $('noPhotoBtn').hidden = !posterPhoto;
+  $('shareBtn').hidden = !(navigator.canShare && navigator.canShare({ files: [posterFile()] }));
+  $('posterOut').hidden = false; $('posterBtn').textContent = 'Remake poster'; $('posterBtn').disabled = false;
+}
+const posterFile = () => new File([posterBlob || new Blob()], 'wanted-' + posterName().replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.jpg', { type: 'image/jpeg' });
+function usePhoto(input) {
+  const f = input.files && input.files[0]; input.value = ''; if (!f) return;
+  const url = URL.createObjectURL(f), img = new Image();
+  img.onload = () => { URL.revokeObjectURL(url); posterPhoto = img; makePoster(); };
+  img.onerror = () => { URL.revokeObjectURL(url); $('posterMsg').className = 'msg bad'; $('posterMsg').textContent = 'Couldn’t open that photo. Try another.'; };
+  img.src = url;
+}
+function posterReset() {
+  posterPhoto = null; posterBlob = null; if (posterUrl) URL.revokeObjectURL(posterUrl); posterUrl = '';
+  $('posterImg').removeAttribute('src'); $('posterOut').hidden = true; $('posterBtn').textContent = 'Make my poster'; $('posterBtn').disabled = false; $('posterMsg').textContent = '';
+  caseNo = String(1000 + Math.floor(Math.random() * 9000));
+}
+$('posterBtn').addEventListener('click', makePoster);
+$('selfieBtn').addEventListener('click', () => $('selfieIn').click());
+$('photoBtn').addEventListener('click', () => $('photoIn').click());
+$('selfieIn').addEventListener('change', e => usePhoto(e.target));
+$('photoIn').addEventListener('change', e => usePhoto(e.target));
+$('noPhotoBtn').addEventListener('click', () => { posterPhoto = null; makePoster(); });
+$('dlBtn').addEventListener('click', () => { const a = document.createElement('a'); a.href = posterUrl; a.download = posterFile().name; document.body.appendChild(a); a.click(); a.remove(); });
+$('shareBtn').addEventListener('click', async () => {
+  try { await navigator.share({ files: [posterFile()], title: 'WANTED: ' + posterName(), text: caption() }); }
+  catch (e) { if (e.name !== 'AbortError') { $('posterMsg').className = 'msg bad'; $('posterMsg').textContent = 'Sharing didn’t work. Use Download instead.'; } }
+});
+$('copyBtn').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(caption()); } catch (e) { $('caption').select(); document.execCommand('copy'); }
+  $('posterMsg').className = 'msg good'; $('posterMsg').textContent = 'Copied. Paste it into your post.';
+});
+
+/* ---------- send me program info ---------- */
+// Saved to Firestore "leads". Visitors can add one but can't read any back;
+// staff export them from leads.html.
+const CONSENT = 'Send me program info. Sault College can email or text me about this program and its events. I can unsubscribe at any time.';
+function parseContact(s) {
+  s = (s || '').trim();
+  if (s.includes('@')) return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(s) && s.length <= 100 ? { contact: s.toLowerCase(), kind: 'email' } : null;
+  let d = s.replace(/\D/g, '');
+  if (d.length === 11 && d[0] === '1') d = d.slice(1);
+  if (d.length === 10) return { contact: d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6), kind: 'phone' };
+  return d.length >= 11 && d.length <= 15 && s.trim().startsWith('+') ? { contact: '+' + d, kind: 'phone' } : null;
+}
+function leadReset() {
+  $('leadOpt').checked = false; $('leadOpt').disabled = false; $('leadForm').hidden = true;
+  $('leadName').value = ''; $('leadContact').value = ''; $('leadWho').value = ''; $('leadMsg').textContent = ''; $('leadSend').disabled = false;
+}
+$('leadOpt').addEventListener('change', () => { $('leadForm').hidden = !$('leadOpt').checked; $('leadMsg').textContent = ''; if ($('leadOpt').checked) $('leadName').focus(); });
+$('leadSend').addEventListener('click', async () => {
+  const m = $('leadMsg'), name = $('leadName').value.replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40), c = parseContact($('leadContact').value);
+  if (!name) { m.className = 'msg bad'; m.textContent = 'Add your first name.'; $('leadName').focus(); return; }
+  if (!c) { m.className = 'msg bad'; m.textContent = 'Enter an email address or a 10-digit mobile number.'; $('leadContact').focus(); return; }
+  const db = await dbReady; if (!db) { m.className = 'msg bad'; m.textContent = 'Can’t connect right now. Ask the booth staff for program info.'; return; }
+  const lead = { name, contact: c.contact, kind: c.kind, event: String((window.OV_CONFIG && window.OV_CONFIG.event) || 'Booth').slice(0, 80), day: dayKey(), consent: CONSENT };
+  if ($('leadWho').value) lead.who = $('leadWho').value;
+  $('leadSend').disabled = true; m.className = 'msg info'; m.textContent = 'Sending…';
+  try {
+    await db.addLead(lead);
+    $('leadForm').hidden = true; $('leadOpt').disabled = true; $('leadName').value = ''; $('leadContact').value = ''; $('leadWho').value = '';
+    m.className = 'msg good'; m.textContent = 'Thanks, ' + name + '. Watch for program info from Sault College.';
+  } catch (e) { $('leadSend').disabled = false; m.className = 'msg bad'; m.textContent = 'Couldn’t send that. Check the connection and try again.'; }
+});
+
 /* ---------- reset + booth tablet idle (index.html?kiosk) ---------- */
 function resetStages() {
   $('shift').value = 0; renderCipher(); ['a1', 'a2'].forEach(id => $(id).value = '');
@@ -264,7 +411,7 @@ function resetStages() {
   [1, 2, 3].forEach(n => { $('h' + n).hidden = true; document.querySelector('[data-hint="' + n + '"]').disabled = false; });
   buildLog(); mi = 0; entry = ''; renderSlots(); $('door').classList.remove('open');
 }
-function reset() { liveStop(); if (KIOSK) $('codeIn').value = ''; running = false; clearInterval(ticking); stage = 0; $('hud').hidden = true; $('clock').textContent = '0:00'; resetStages(); show('intro'); }
+function reset() { liveStop(); posterReset(); leadReset(); if (KIOSK) $('codeIn').value = ''; running = false; clearInterval(ticking); stage = 0; $('hud').hidden = true; $('clock').textContent = '0:00'; resetStages(); show('intro'); }
 $('againBtn').addEventListener('click', reset);
 let idle = null;
 function armIdle() { if (!KIOSK) return; clearTimeout(idle); if (stage > 0) idle = setTimeout(reset, stage === 6 ? 60000 : 180000); }

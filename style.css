@@ -16,7 +16,7 @@ img{max-width:100%}
 html,body{background:var(--bg);color:var(--fg)}
 body{font-family:var(--body);font-size:16px;line-height:1.5}
 *{box-sizing:border-box}
-button,input{font:inherit}
+button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 :focus-visible{outline:3px solid var(--amber);outline-offset:3px}
 a{color:var(--accent)}
@@ -123,6 +123,17 @@ label.l{display:block;font-family:var(--mono);font-size:12px;letter-spacing:.1em
 .lock-callout .combo{font-family:var(--display);font-size:56px;line-height:1;color:var(--amber);letter-spacing:.08em}
 details.staff{margin-top:28px;border-top:1px solid var(--line);padding-top:16px}
 details.staff summary{cursor:pointer;font-family:var(--mono);font-size:13px;color:var(--muted);min-height:44px;display:flex;align-items:center}
+.small-print{color:var(--soft);font-size:14px}
+.poster{display:block;width:100%;border-radius:4px;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.inp.caption{width:100%;font-size:14px;line-height:1.4;resize:none}
+select.inp{font-size:16px}
+.check{display:flex;gap:12px;align-items:flex-start;font-size:15px;color:var(--soft);cursor:pointer}
+.check input{flex:0 0 auto;width:24px;height:24px;margin:2px 0 0;accent-color:var(--accent)}
+.check b{color:var(--fg)}
+.ltable{width:100%;border-collapse:collapse;font-size:14px}
+.ltable th{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;font-weight:400}
+.ltable th,.ltable td{padding:8px 6px;border-bottom:1px solid var(--line)}
+.ltable td:last-child,.ltable th:last-child{text-align:right;font-family:var(--mono)}
 .foot{margin-top:32px;font-size:12px;color:var(--muted);font-family:var(--mono)}
 
 /* ---------- BOARD ---------- */

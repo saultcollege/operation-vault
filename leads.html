@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Operation Vault Leads</title>
+<meta name="theme-color" content="#0A0E0B">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+</head>
+<body>
+<main id="play">
+  <section class="screen">
+    <p class="kicker">Staff only // Recruitment</p>
+    <h2>Program info sign-ups</h2>
+    <p class="brief">Everyone who ticked “Send me program info” on the win screen. Download them as a spreadsheet for the recruitment team.</p>
+
+    <form class="card stack" id="signInForm" hidden>
+      <div><label class="l" for="lEmail">Staff email</label><input class="inp" id="lEmail" type="email" autocomplete="username" style="width:100%"></div>
+      <div><label class="l" for="lPw">Password</label><input class="inp" id="lPw" type="password" autocomplete="current-password" style="width:100%"></div>
+      <button type="submit" class="btn">Sign in</button>
+    </form>
+
+    <div class="stack" id="leadsView" hidden>
+      <div class="card stack">
+        <div class="stats">
+          <div class="stat"><div class="k">SIGN-UPS</div><div class="v" id="lTotal">0</div></div>
+          <div class="stat"><div class="k">EVENTS</div><div class="v" id="lEvents">0</div></div>
+        </div>
+        <table class="ltable"><thead><tr><th>Event</th><th>Dates</th><th>Sign-ups</th></tr></thead><tbody id="lByEvent"></tbody></table>
+      </div>
+      <div class="card stack">
+        <div><label class="l" for="lPick">Download</label>
+          <select class="inp" id="lPick" style="width:100%"><option value="">All events</option></select></div>
+        <button type="button" class="btn" id="lDownload">Download CSV</button>
+        <div class="small-print">Opens in Excel or Google Sheets. It holds people’s contact details, so keep it on college systems and delete stray copies.</div>
+      </div>
+      <div class="row"><button type="button" class="btn ghost small" id="lRefresh">Refresh</button><button type="button" class="btn ghost small" id="lOut">Sign out</button></div>
+    </div>
+
+    <div class="msg" id="lMsg" role="status" style="margin-top:14px"></div>
+  </section>
+</main>
+<script type="module" src="leads.js"></script>
+</body>
+</html>

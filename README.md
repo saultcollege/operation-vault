@@ -4,7 +4,8 @@ A timed hacking mission for the Sault College Computer Networking & Cyber Securi
 
 - **index.html**: the game. Visitors play it on their phones.
 - **board.html**: the big monitor: a live intruder map plus today's leaderboard.
-- **config.js**: the only file you edit (padlock combination + Firebase settings).
+- **leads.html**: staff-only page to download "send me program info" sign-ups for recruitment.
+- **config.js**: the only file you edit (padlock combination, event name + Firebase settings).
 
 Setup takes about 20 minutes. Steps 1–5 are a one-time job.
 
@@ -35,7 +36,8 @@ This login lets staff remove inappropriate names from the board.
 1. Open **Build → Authentication → Get started**. Under **Sign-in method**, enable **Email/Password**.
 2. On the **Users** tab, click **Add user** and create one staff login, e.g. `cyberbooth@saultcollege.ca`, with a strong password.
 3. Copy that user's **User UID** from the users list.
-4. Back in **Firestore → Rules**, replace `PASTE_STAFF_UID` with that UID and click **Publish**.
+4. Back in **Firestore → Rules**, put that UID in the `isStaff()` list near the top and click **Publish**.
+   To give recruiters their own login, add a user for each one and add their UIDs to the same list, e.g. `['uid1', 'uid2']`.
 
 ## 5. Put it on GitHub Pages (5 min)
 
@@ -63,6 +65,12 @@ The big-screen QR code points to your site automatically. If you use a custom do
 
 **Intruder map:** players type a hacker name before they start (blank gets a codename like `VIPER-42`). Their dot moves along Firewall → Staff login → Server → Inbox → Vault as they clear each defence, and the alert feed calls out each step. A dot disappears 25 seconds after its player opens the vault, when they press **Play again**, or 2 minutes after their phone goes quiet.
 
+**Wanted poster:** winners can tap **Make my poster** for a mugshot-style WANTED poster with their name and time, plus a QR code to the program page. They can add a selfie or a photo from their gallery, then share or download it. A ready-made caption with the program link is there to copy. Everything is drawn on their phone and photos are never uploaded. The poster is hidden on the booth tablet (`?kiosk`) so selfies don't pile up on a shared device.
+
+**Program info sign-ups:** the win screen has an unticked "Send me program info" box. Ticking it asks for a first name, an email or mobile number, and an optional "I am…". Before each event, set `event:` in config.js (e.g. `'Fall Open House 2026'`) so recruitment can tell events apart.
+
+**Exporting sign-ups:** open `.../leads.html` on a staff laptop (not the big screen) and sign in with a staff login. It shows a count per event; pick an event or *All events* and click **Download CSV**. Visitors can add sign-ups but can never read them back.
+
 **Removing a name:** on the board, click **Staff sign-in**, log in, click **Manage**, then click ✕ next to the entry.
 
 **New day:** the board shows only today's runs, so it resets at midnight on its own. Older runs stay in Firestore if you ever want them.
@@ -70,7 +78,9 @@ The big-screen QR code points to your site automatically. If you use a custom do
 ## Good to know
 
 - The game still works if Firebase isn't set up or the Wi-Fi drops. Players just can't post a time or show up on the map.
-- **Updating from an older version?** Paste the new **firestore.rules** into **Firestore → Rules** (keep your staff UID in it) and click **Publish**. Without that, the intruder map stays empty and the board says so.
+- **Updating from an older version?** Each new feature needs the latest rules. Paste **firestore.rules** into **Firestore → Rules** (keep your staff UID in it) and click **Publish**. Without that, sign-ups fail with "Couldn’t send that".
+- **Privacy:** sign-ups are personal information. Before the first event, have the college's privacy office check the wording on the win screen and how long you'll keep the exports. To clear old sign-ups, delete them in **Firestore → Data → leads**.
+- **Live map:** Paste the new **firestore.rules** into **Firestore → Rules** (keep your staff UID in it) and click **Publish**. Without that, the intruder map stays empty and the board says so.
 - Like posted times, map dots come from visitors' phones with no sign-in, so someone with developer tools could add or remove dots. They're temporary and vanish on their own.
 - The Firestore rules accept only a name (1–16 characters) and a time between 25 seconds and an hour, and posted times can't be edited. A determined visitor with developer tools could still post a fake time, which is the trade-off for no sign-in. Staff can delete it.
 - Firebase's free tier allows tens of thousands of reads and writes a day, far more than a booth needs.

@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
 <link rel="stylesheet" href="style.css">
+<script src="qrcode.js"></script>
 <script src="config.js"></script>
 </head>
 <body>
@@ -160,10 +161,55 @@
 
     <p class="msg info" id="saveOff" hidden style="margin-top:16px">The leaderboard isn’t connected right now, but your time still counts. Show this screen at the booth.</p>
 
-    <div class="card stack" style="margin-top:20px">
+    <div class="card stack" id="wantedCard" style="margin-top:20px">
+      <div class="kicker" style="margin:0">Wanted poster</div>
+      <div style="font-weight:700">Make yourself famous</div>
+      <div class="small-print">Get a mugshot-style WANTED poster with your time to post on social media. Add a photo if you like. Your photo stays on your phone and is never uploaded.</div>
+      <button type="button" class="btn" id="posterBtn">Make my poster</button>
+      <div class="stack" id="posterOut" hidden>
+        <img class="poster" id="posterImg" alt="">
+        <div class="row">
+          <button type="button" class="btn ghost small" id="selfieBtn">Take a selfie</button>
+          <button type="button" class="btn ghost small" id="photoBtn">Choose a photo</button>
+          <button type="button" class="btn ghost small" id="noPhotoBtn" hidden>Remove photo</button>
+        </div>
+        <input type="file" id="selfieIn" accept="image/*" capture="user" hidden>
+        <input type="file" id="photoIn" accept="image/*" hidden>
+        <div class="row">
+          <button type="button" class="btn" id="shareBtn" hidden>Share</button>
+          <button type="button" class="btn ghost" id="dlBtn">Download</button>
+        </div>
+        <div>
+          <label class="l" for="caption">Caption for your post</label>
+          <textarea class="inp caption" id="caption" readonly rows="4"></textarea>
+        </div>
+        <div class="row"><button type="button" class="btn ghost small" id="copyBtn">Copy caption</button><span class="msg" id="posterMsg" role="status"></span></div>
+      </div>
+    </div>
+
+    <div class="card stack" id="leadCard" style="margin-top:20px">
       <div style="font-weight:700">Want to do this for real?</div>
       <div style="color:var(--soft);font-size:15px">Computer Networking &amp; Cyber Security · 2-Year Ontario College Diploma at Sault College.</div>
       <a class="btn ghost" href="https://www.saultcollege.ca/programs/information-technology-studies/computer-networking-and-cyber-security" target="_blank" rel="noopener">See the program →</a>
+      <div class="stack" id="leadOn" hidden>
+        <label class="check"><input type="checkbox" id="leadOpt"><span><b>Send me program info.</b> Sault College can email or text me about this program and its events. I can unsubscribe at any time.</span></label>
+        <div class="stack" id="leadForm" hidden>
+          <div><label class="l" for="leadName">First name</label><input class="inp" id="leadName" maxlength="40" autocomplete="given-name" style="width:100%"></div>
+          <div><label class="l" for="leadContact">Email or mobile number</label><input class="inp" id="leadContact" maxlength="100" autocomplete="email" inputmode="email" style="width:100%"></div>
+          <div><label class="l" for="leadWho">I am… (optional)</label>
+            <select class="inp" id="leadWho" style="width:100%">
+              <option value="">Choose one</option>
+              <option>High school student</option>
+              <option>Parent or guardian</option>
+              <option>Changing careers</option>
+              <option>Already in college</option>
+              <option>Other</option>
+            </select></div>
+          <button type="button" class="btn" id="leadSend">Send me info</button>
+        </div>
+        <div class="msg" id="leadMsg" role="status"></div>
+      </div>
+      <div class="small-print" id="leadOff" hidden>Want program info? Ask the booth staff.</div>
     </div>
     <div style="margin-top:16px"><button type="button" class="btn ghost" id="againBtn">Play again</button></div>
   </section>

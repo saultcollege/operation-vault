@@ -1,4 +1,4 @@
-import { initDb, dayKey, fmt } from './db.js';
+import { initDb, dayKey, fmt } from './db.js?v=20261023b';
 
 const $ = id => document.getElementById(id);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;

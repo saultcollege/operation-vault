@@ -1,4 +1,4 @@
-import { initDb } from './db.js';
+import { initDb } from './db.js?v=20261023b';
 
 const $ = id => document.getElementById(id);
 let db = null, leads = [];

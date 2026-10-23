@@ -1,4 +1,4 @@
-import { initDb, dayKey, fmt } from './db.js';
+import { initDb, dayKey, fmt } from './db.js?v=20261023b';
 
 const VAULT = String((window.OV_CONFIG && window.OV_CONFIG.vault) || '7319').replace(/\D/g, '').padEnd(4, '0').slice(0, 4);
 const KIOSK = new URLSearchParams(location.search).has('kiosk');
@@ -331,10 +331,18 @@ function drawPoster() {
   return cv;
 }
 async function makePoster() {
-  $('posterBtn').disabled = true; $('posterMsg').textContent = '';
+  $('posterBtn').disabled = true; $('posterBtn').textContent = 'Making your poster…'; $('posterMsg').textContent = '';
+  try { await buildPoster(); }
+  catch (e) {
+    console.warn('Poster failed:', e);
+    $('posterOut').hidden = false; $('posterMsg').className = 'msg bad'; $('posterMsg').textContent = 'Couldn’t make the poster on this device. Try again, or reload the page.';
+    $('posterBtn').textContent = posterUrl ? 'Remake poster' : 'Make my poster'; $('posterBtn').disabled = false;
+  }
+}
+async function buildPoster() {
   await posterFonts();
   const cv = drawPoster();
-  posterBlob = await new Promise(r => cv.toBlob(r, 'image/jpeg', .9));
+  posterBlob = await new Promise((ok, no) => cv.toBlob(b => b ? ok(b) : no(new Error('toBlob returned nothing')), 'image/jpeg', .9));
   if (posterUrl) URL.revokeObjectURL(posterUrl);
   posterUrl = URL.createObjectURL(posterBlob);
   $('posterImg').src = posterUrl; $('posterImg').alt = 'WANTED poster: ' + posterName() + ', cracked the vault in ' + fmt(finalSecs) + ', last seen at Sault College.';

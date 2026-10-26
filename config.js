@@ -3,9 +3,9 @@
 // =====================================================================
 window.OV_CONFIG = {
 
-  // The 4-digit combination of your real padlock. Players collect these
-  // digits during the game and are shown the combination when they win.
-  vault: '7319',
+  // The 5-digit vault code. Players collect one digit per defence and see
+  // the full code on the win screen. Change it whenever you like.
+  vault: '73192',
 
   // Paste your Firebase web app config here (see README, step 2).
   // While apiKey still says PASTE_..., the game runs without a leaderboard.
@@ -18,14 +18,9 @@ window.OV_CONFIG = {
   appId: "1:18731280819:web:957e2f1ee168b4376503c6"
   },
 
-  // Name of the event you're at. It's saved with every "send me program
-  // info" sign-up so recruitment can tell events apart in the export.
-  // Change it before each event, e.g. 'Fall Open House 2026'.
-  event: 'Booth',
-
   // School battle: players pick one of these when they start. Add, remove
   // or reorder freely. Each school gets its own colour on the big screen.
-  schools: ['White Pines', 'Superior Heights', "St. Mary's College", 'CASS', 'W.C. Eaket S.S.', 'ELSS', 'Michipicoten High School'],
+  schools: ['White Pines', 'Superior Heights', "St. Mary's College", 'CASS', 'W.C. Eaket S.S.', 'ELSS', 'Michipicoten High School', 'Korah'],
 
   // The "line to beat" on the big screen. Play a run yourself and put the
   // time here as 'm:ss'. Leave time empty ('') to hide it.

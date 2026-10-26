@@ -1,6 +1,6 @@
-import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261023c';
+import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261026b';
 
-const VAULT = String((window.OV_CONFIG && window.OV_CONFIG.vault) || '7319').replace(/\D/g, '').padEnd(4, '0').slice(0, 4);
+const VAULT = String((window.OV_CONFIG && window.OV_CONFIG.vault) || '73192').replace(/\D/g, '').padEnd(5, '0').slice(0, 5);
 const KIOSK = new URLSearchParams(location.search).has('kiosk');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
@@ -106,7 +106,7 @@ function liveStop() {
   const id = liveId; liveId = null;
   if (id) dbReady.then(db => db && db.dropLive(id)).catch(() => {});
 }
-function liveDone() { liveSet(6); clearInterval(liveBeat); clearTimeout(liveEnd); liveEnd = setTimeout(liveStop, 30000); }
+function liveDone() { liveSet(7); clearInterval(liveBeat); clearTimeout(liveEnd); liveEnd = setTimeout(liveStop, 30000); }
 addEventListener('pagehide', liveStop);
 
 /* ---------- stage 1: cipher ---------- */
@@ -307,6 +307,171 @@ function endHunt(found, timeout) {
 }
 $('mail').addEventListener('click', e => { if (hunting) endHunt(!!e.target.closest('.rf')); });
 
+/* ---------- stage 5: door code (Python) ---------- */
+// The door controller is a short Python program with its lines scrambled.
+// Players tap them into order and press RUN. A tiny interpreter runs the
+// order they chose, so a wrong order gives a real error or wrong output.
+// Each template's numbers are worked out so the right program prints the
+// fifth vault digit. Lines: [text, indent, step], where step does the work.
+class PyError extends Error { constructor(type, msg, line) { super(msg); this.type = type; this.line = line; } }
+const pyStr = v => Array.isArray(v) ? '[' + v.map(pyStr).join(', ') + ']' : v === undefined ? 'None' : String(v);
+const range = n => [...Array(n).keys()];
+const CODE_TEMPLATES = [
+  d => { // countdown loop
+    const n = rnd(2, 4), s = rnd(2, 5), a = d + n * s;
+    return { name: 'countdown', hint: 'Set up both variables first. The loop runs the indented line under it. Print comes last.', lines: [
+      ['step = ' + s, 0, { set: 'step', f: e => s }],
+      ['code = ' + a, 0, { set: 'code', f: e => a }],
+      ['for i in range(' + n + '):', 0, { for: 'i', it: e => range(n) }],
+      ['code = code - step', 4, { set: 'code', f: e => e.code - e.step }],
+      ['print("Override digit:", code)', 0, { print: e => ['Override digit:', e.code] }]] };
+  },
+  d => { // add up a list
+    let k; do { k = [rnd(2, 9), rnd(2, 9), rnd(2, 9)]; } while (k[0] + k[1] + k[2] - d < 1);
+    const m = k[0] + k[1] + k[2] - d;
+    return { name: 'keys', hint: 'Make the list and the total before the loop. The indented line adds each key to the total.', lines: [
+      ['keys = [' + k.join(', ') + ']', 0, { set: 'keys', f: e => k.slice() }],
+      ['total = 0', 0, { set: 'total', f: e => 0 }],
+      ['for key in keys:', 0, { for: 'key', it: e => e.keys }],
+      ['total = total + key', 4, { set: 'total', f: e => e.total + e.key }],
+      ['print("Override digit:", total - ' + m + ')', 0, { print: e => ['Override digit:', e.total - m] }]] };
+  },
+  d => { // a function
+    let x, k; do { x = rnd(2, 5); k = rnd(2, 4); } while (x * k - d < 1);
+    const j = x * k - d;
+    return { name: 'function', hint: 'A function is defined first (def), with its return line indented under it. Then call it and print the result.', lines: [
+      ['def unlock(power):', 0, { def: 'unlock', params: ['power'] }],
+      ['return power * ' + k + ' - ' + j, 4, { ret: e => e.power * k - j }],
+      ['level = ' + x, 0, { set: 'level', f: e => x }],
+      ['digit = unlock(level)', 0, { set: 'digit', f: e => e.unlock(e.level) }],
+      ['print("Override digit:", digit)', 0, { print: e => ['Override digit:', e.digit] }]] };
+  },
+  d => { // if / else
+    const hot = Math.random() < .5, t = hot ? rnd(61, 95) : rnd(20, 59);
+    let other; do { other = rnd(0, 9); } while (other === d);
+    const a = hot ? d : other, b = hot ? other : d;
+    return { name: 'alarm', hint: 'Set the temperature first. Each indented line goes right under its if or else. The else comes straight after the if’s line.', lines: [
+      ['temp = ' + t, 0, { set: 'temp', f: e => t }],
+      ['if temp > 60:', 0, { if: e => e.temp > 60 }],
+      ['digit = ' + a, 4, { set: 'digit', f: e => a }],
+      ['else:', 0, { else: true }],
+      ['digit = ' + b, 4, { set: 'digit', f: e => b }],
+      ['print("Override digit:", digit)', 0, { print: e => ['Override digit:', e.digit] }]] };
+  },
+  d => { // string length
+    const word = pickOne(['FIREWALL', 'PASSWORD', 'KEYLOGGER', 'ENCRYPTION', 'BACKDOOR', 'AUTHENTICATION', 'CYBERSECURITY'].filter(w => w.length > d));
+    const s = word.length - d;
+    return { name: 'word', hint: 'Create word and shift first, then count the letters, then work out the digit, then print it.', lines: [
+      ['word = "' + word + '"', 0, { set: 'word', f: e => word }],
+      ['shift = ' + s, 0, { set: 'shift', f: e => s }],
+      ['letters = len(word)', 0, { set: 'letters', f: e => e.word.length }],
+      ['digit = letters - shift', 0, { set: 'digit', f: e => e.letters - e.shift }],
+      ['print("Override digit:", digit)', 0, { print: e => ['Override digit:', e.digit] }]] };
+  }
+];
+// Turn the chosen order into blocks using indentation, the way Python does.
+function pyParse(lines) {
+  const root = { ind: 0, body: [] }, stack = [root]; let open = null;
+  lines.forEach((L, i) => {
+    const no = i + 1, ind = L[1], s = L[2];
+    if (open) {
+      if (ind <= open.ind) throw new PyError('IndentationError', 'expected an indented block after line ' + open.no, no);
+      stack.push({ ind, body: open.body }); open = null;
+    } else {
+      if (ind > stack[stack.length - 1].ind) throw new PyError('IndentationError', 'unexpected indent', no);
+      while (ind < stack[stack.length - 1].ind) stack.pop();
+    }
+    const body = stack[stack.length - 1].body;
+    if (s.else) {
+      const prev = body[body.length - 1];
+      if (!prev || !prev.if || prev.elseBody) throw new PyError('SyntaxError', 'invalid syntax (else without a matching if)', no);
+      prev.elseBody = []; open = { ind, body: prev.elseBody, no }; return;
+    }
+    const node = { ...s, no, body: [] }; body.push(node);
+    if (s.for || s.if || s.def) open = { ind, body: node.body, no };
+  });
+  if (open) throw new PyError('IndentationError', 'expected an indented block after line ' + open.no, lines.length);
+  return root.body;
+}
+function pyRun(lines) {
+  const out = [], tree = pyParse(lines); let steps = 0;
+  const scope = vars => new Proxy(vars, { get(t, k) { if (typeof k === 'symbol' || k in t) return t[k]; throw new PyError('NameError', 'name \'' + k + '\' is not defined'); } });
+  class Ret { constructor(v) { this.v = v; } }
+  function exec(body, vars, inDef) {
+    for (const n of body) {
+      if (++steps > 500) throw new PyError('RuntimeError', 'too many steps');
+      try {
+        if (n.set) vars[n.set] = n.f(scope(vars));
+        else if (n.print) out.push(n.print(scope(vars)).map(pyStr).join(' '));
+        else if (n.for) { for (const x of n.it(scope(vars))) { vars[n.for] = x; exec(n.body, vars, inDef); } }
+        else if (n.if) exec(n.if(scope(vars)) ? n.body : n.elseBody || [], vars, inDef);
+        else if (n.def) vars[n.def] = (...args) => { const local = Object.assign(Object.create(null), vars); n.params.forEach((p, i) => local[p] = args[i]); try { exec(n.body, local, true); } catch (r) { if (r instanceof Ret) return r.v; throw r; } };
+        else if (n.ret) { if (!inDef) throw new PyError('SyntaxError', '\'return\' outside function'); throw new Ret(n.ret(scope(vars))); }
+      } catch (e) { if (e instanceof PyError && !e.line) e.line = n.no; throw e; }
+    }
+  }
+  exec(tree, Object.create(null), false);
+  return out;
+}
+let PROG = null, codeOrder = [], codePool = [], codeExpect = '', codeRuns = 0, codeBusy = false;
+function newCode() {
+  const t = pickOne(CODE_TEMPLATES)(+VAULT[4]);
+  PROG = t; codeExpect = pyRun(t.lines).join('\n'); codeOrder = []; codeRuns = 0; codeBusy = false;
+  do { codePool = shuffle(t.lines.slice()); } while (codePool.every((l, i) => l === t.lines[i]));
+  $('h4c').textContent = t.hint; $('console').textContent = ''; $('console').hidden = true; $('m5c').textContent = '';
+  renderCode();
+}
+function codeLine(l, i) {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'cl';
+  const no = document.createElement('span'); no.className = 'no'; no.textContent = i == null ? '' : i + 1;
+  const tx = document.createElement('span'); tx.className = 'tx'; tx.textContent = ' '.repeat(l[1]) + l[0];
+  b.append(no, tx); return b;
+}
+function renderCode() {
+  const prog = $('prog'), pool = $('pool'); prog.textContent = ''; pool.textContent = '';
+  codeOrder.forEach((l, i) => { const b = codeLine(l, i); b.setAttribute('aria-label', 'Line ' + (i + 1) + ': ' + l[0] + '. Tap to remove.'); b.addEventListener('click', () => { if (codeBusy) return; codeOrder.splice(i, 1); codePool.push(l); renderCode(); }); prog.appendChild(b); });
+  if (!codeOrder.length) { const p = document.createElement('div'); p.className = 'cl-empty'; p.textContent = 'Tap lines below to build the program.'; prog.appendChild(p); }
+  codePool.forEach((l, i) => { const b = codeLine(l, null); b.setAttribute('aria-label', 'Add line: ' + l[0]); b.addEventListener('click', () => { if (codeBusy) return; codePool.splice(i, 1); codeOrder.push(l); renderCode(); }); pool.appendChild(b); });
+  $('pool').hidden = !codePool.length; $('runBtn').disabled = codePool.length > 0 || codeBusy;
+}
+const CODE_HELP = {
+  NameError: v => 'A line uses ' + v + ' before it exists. Move the line that creates it higher.',
+  IndentationError: () => 'Indented lines must sit right under a line ending in a colon (:), and every such line needs one.',
+  SyntaxError: () => 'That line can’t go there. An else must come right after its if block, and return only works inside a def.',
+  RuntimeError: () => 'Something went round and round. Check the order.'
+};
+function typeConsole(lines, done) {
+  const box = $('console'); box.hidden = false; box.textContent = '';
+  let i = 0; const next = () => {
+    if (i >= lines.length) return done();
+    const [text, cls] = lines[i++], row = document.createElement('div'); if (cls) row.className = cls; row.textContent = text; box.appendChild(row);
+    setTimeout(next, reduce ? 0 : 260);
+  };
+  next();
+}
+$('runBtn').addEventListener('click', () => {
+  if (stage !== 5 || codeBusy || codePool.length) return;
+  codeBusy = true; codeRuns++; renderCode(); $('m5c').textContent = '';
+  let out = null, err = null;
+  try { out = pyRun(codeOrder); } catch (e) { if (e instanceof PyError) err = e; else throw e; }
+  const lines = [['$ python3 door.py', 'cmd']];
+  if (err) lines.push(['Traceback (most recent call last):', 'err'], ['  File "door.py", line ' + err.line, 'err'], [err.type + ': ' + err.message, 'err']);
+  else out.forEach(o => lines.push([o, '']));
+  const ok = !err && out.join('\n') === codeExpect;
+  if (ok) lines.push(['>>> DOOR OVERRIDE ACCEPTED', 'okl']);
+  else if (!err) lines.push(['>>> OVERRIDE REJECTED: wrong digit', 'err']);
+  typeConsole(lines, () => {
+    codeBusy = false;
+    if (ok) { good(); $('m5c').className = 'msg good'; $('m5c').textContent = 'It runs! Door override accepted.'; setTimeout(() => reward(5), 1200); return; }
+    addPen(10, 'bug'); bad($('console'));
+    const m = err && err.type === 'NameError' && err.message.match(/'(\w+)'/);
+    $('m5c').className = 'msg bad';
+    $('m5c').textContent = err ? (CODE_HELP[err.type] || CODE_HELP.RuntimeError)(m ? m[1] : '') : 'It ran, but printed the wrong thing. Programs run top to bottom, so check the order of the steps.';
+    renderCode();
+  });
+});
+$('codeReset').addEventListener('click', () => { if (codeBusy) return; codePool = shuffle(codePool.concat(codeOrder)); codeOrder = []; renderCode(); });
+
 /* ---------- answers + hints ---------- */
 document.querySelectorAll('[data-submit]').forEach(b => b.addEventListener('click', () => submit(+b.dataset.submit)));
 ['a1', 'a2'].forEach((id, i) => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') submit(i + 1); }));
@@ -329,14 +494,16 @@ const JOBS = {
   1: ['Cryptographer', 'Designs the encryption that protects online banking, messaging apps and every “https” website.'],
   2: ['Penetration tester', 'Gets paid to break into companies, just like you did, then shows them how to fix the holes.'],
   3: ['SOC analyst', 'Works in a Security Operations Centre, watching logs and alerts to catch attackers in real time.'],
-  4: ['Security awareness lead', 'Teaches staff to spot scams and runs fake phishing tests to see who clicks.']
+  4: ['Security awareness lead', 'Teaches staff to spot scams and runs fake phishing tests to see who clicks.'],
+  5: ['Software developer', 'Writes the code behind apps, games and websites, then tracks down the bugs. It’s what Sault College’s Computer Programming program trains you for.']
 };
 function rw(n) {
   return {
     1: ['Note decrypted', 'Cipher cracked', 'A Caesar cipher only has 25 possible keys, so a computer breaks it instantly. Real encryption has more possible keys than there are atoms in the universe.'],
     2: ['Account compromised', 'You’re in as ' + first(), P.lesson + ' Long random passphrases and a password manager stop this. So does multi-factor authentication.'],
     3: ['Intruder located', 'Gotcha: ' + ATTACKER, 'A burst of failed logins then a success is a brute-force attack. Account lockouts and alerts on patterns like this are a defender’s bread and butter.'],
-    4: ['Inbox secured', 'Phish caught', 'Urgency, secrecy, look-alike domains and money requests are the classic tells. Phishing is still the number one way attackers get in.']
+    4: ['Inbox secured', 'Phish caught', 'Urgency, secrecy, look-alike domains and money requests are the classic tells. Phishing is still the number one way attackers get in.'],
+    5: ['Door code fixed', 'Override accepted', 'Code runs one line at a time, top to bottom. Put the steps in the wrong order and the computer does exactly what you said, not what you meant. Finding that is called debugging.']
   }[n];
 }
 function reward(n) {
@@ -345,14 +512,15 @@ function reward(n) {
   $('rwTitle').textContent = r[1]; $('rwText').textContent = r[2];
   $('rwJob').textContent = JOBS[n][0]; $('rwJobText').textContent = JOBS[n][1];
   $('rwLbl').textContent = 'VAULT DIGIT ' + n; $('rwDig').textContent = VAULT[n - 1];
-  $('rwNext').textContent = n < 4 ? 'Next defence →' : 'Go to the vault →';
+  $('rwNext').textContent = n < 5 ? 'Next defence →' : 'Go to the vault →';
   stage = n + 1; pips(); liveSet(stage); show('reward'); $('rwNext').focus();
 }
 $('rwNext').addEventListener('click', () => {
   if (stage === 2) { show('s2'); $('a2').focus(); }
   else if (stage === 3) show('s3');
   else if (stage === 4) { MAIL = pickMail(); mi = 0; flagsFound = 0; phishRight = 0; renderMail(); $('m4').textContent = ''; show('s4'); }
-  else if (stage === 5) { entry = ''; renderSlots(); $('collected').textContent = VAULT.split('').join(' '); show('vault'); }
+  else if (stage === 5) { show('s5'); }
+  else if (stage === 6) { entry = ''; renderSlots(); $('collected').textContent = VAULT.split('').join(' '); show('vault'); }
 });
 
 /* ---------- vault ---------- */
@@ -364,10 +532,10 @@ function renderSlots() { [...$('slots').children].forEach((s, i) => s.textConten
   b.addEventListener('click', () => press(k)); $('keypad').appendChild(b);
 });
 function press(k) {
-  if (stage !== 5 || vaultBusy) return;
-  if (k === 'CLR') entry = ''; else if (k === '⌫') entry = entry.slice(0, -1); else if (entry.length < 4) entry += k;
+  if (stage !== 6 || vaultBusy) return;
+  if (k === 'CLR') entry = ''; else if (k === '⌫') entry = entry.slice(0, -1); else if (entry.length < VAULT.length) entry += k;
   renderSlots();
-  if (entry.length < 4) return;
+  if (entry.length < VAULT.length) return;
   if (entry === VAULT) {
     good(); vaultBusy = true; running = false; liveDone(); finalSecs = Math.round(elapsed()); clearInterval(ticking); $('clock').textContent = fmt(finalSecs);
     $('door').classList.add('open'); $('m5').className = 'msg good'; $('m5').textContent = 'VAULT OPEN'; chime(); setTimeout(chime, 400);
@@ -376,7 +544,7 @@ function press(k) {
 }
 
 /* ---------- ranks + badges ---------- */
-const RANKS = [[60, 'Red Team Lead'], [90, 'Penetration Tester'], [120, 'Threat Hunter'], [180, 'Security Analyst'], [300, 'Junior Analyst'], [Infinity, 'Script Kiddie']];
+const RANKS = [[90, 'Red Team Lead'], [120, 'Penetration Tester'], [150, 'Threat Hunter'], [210, 'Security Analyst'], [330, 'Junior Analyst'], [Infinity, 'Script Kiddie']];
 const rankOf = x => RANKS.find(r => x <= r[0])[1];
 // The "line to beat" from config.js, e.g. { name: 'Mr. Laitinen', time: '2:41' }.
 const INSTR = (() => { const i = (window.OV_CONFIG && window.OV_CONFIG.instructor) || {}, m = String(i.time || '').match(/^(\d+):(\d\d)$/); return m ? { name: String(i.name || 'Instructor'), secs: +m[1] * 60 + +m[2] } : null; })();
@@ -385,7 +553,8 @@ function renderBadges() {
   const b = [];
   if (!mistakes && !hintsUsed) b.push('Flawless'); else if (!hintsUsed) b.push('No hints');
   if (phishRight === MAIL.length && flagsFound === MAIL.filter(m => m.ph).length) b.push('Phish spotter');
-  if (finalSecs < 60) b.push('Under 1:00');
+  if (finalSecs < 90) b.push('Under 1:30');
+  if (codeRuns === 1) b.push('Bug free');
   if (bestStreak >= 5) b.push('On a roll');
   if (INSTR && finalSecs < INSTR.secs) b.push('Beat ' + INSTR.name);
   if (bonusDone) b.push('Hash cracker');
@@ -398,7 +567,7 @@ function renderBadges() {
 /* ---------- finish + leaderboard ---------- */
 let posted = false, postedId = null;
 async function finish() {
-  stage = 6; pips(); show('done');
+  stage = 7; pips(); show('done');
   $('finalTime').textContent = fmt(finalSecs);
   $('finalBreak').textContent = (penSecs ? 'Includes ' + penSecs + 's of penalties' : 'No penalties. Clean run') + (bonusSecsWon ? (penSecs ? ' and ' : '. Plus ') + bonusSecsWon + 's of red-flag bonuses.' : '.');
   $('combo').textContent = VAULT.split('').join('-');
@@ -407,10 +576,9 @@ async function finish() {
   if (INSTR) $('profLine').textContent = finalSecs < INSTR.secs ? '★ You beat ' + INSTR.name + '’s time of ' + fmt(INSTR.secs) + '!' : INSTR.name + ' did it in ' + fmt(INSTR.secs) + '. ' + (finalSecs - INSTR.secs) + ' seconds to go. Play again?';
   $('bonusCard').hidden = !bonusOK; $('bonusGo').disabled = false; $('bonusGo').textContent = 'Start the bonus round →';
   posted = false; postedId = null; $('saveMsg').textContent = ''; $('nameIn').value = liveName; $('saveBtn').disabled = false;
-  posterReset(); leadReset(); $('wantedCard').hidden = KIOSK;
+  posterReset(); $('wantedCard').hidden = KIOSK;
   const db = await dbReady;
   $('saveDirect').hidden = !db; $('saveOff').hidden = !!db;
-  $('leadOn').hidden = !db; $('leadOff').hidden = !!db;
   armIdle();
 }
 $('saveBtn').addEventListener('click', async () => {
@@ -480,7 +648,7 @@ $('bonusBack').addEventListener('click', () => { bLive = false; clearInterval(bT
 
 /* ---------- wanted poster ---------- */
 // Drawn on the player's own phone. The photo never leaves the device.
-const PROGRAM_URL = 'https://www.saultcollege.ca/programs/information-technology-studies/computer-networking-and-cyber-security';
+const PROGRAM_URL = 'https://www.saultcollege.ca/programs/categories/information-technology-studies';
 let posterPhoto = null, posterBlob = null, posterUrl = '', caseNo = '';
 const posterName = () => { const n = cleanName($('nameIn').value); return n && isAppropriate(n) ? n : liveName || 'Unknown hacker'; };
 const caption = () => 'I cracked the vault in ' + fmt(finalSecs) + ' (rank: ' + rankOf(finalSecs) + ')' + (school ? ' for ' + school : '') + ' at the Sault College Cyber Security booth. Think you can catch me? ' + PROGRAM_URL;
@@ -549,7 +717,7 @@ function drawPoster() {
   const FY = 1150, FH = H - 42 - FY; c.fillStyle = INK; c.fillRect(42, FY, W - 84, FH);
   c.textAlign = 'left'; c.fillStyle = PAPER; c.font = '400 46px ' + ANTON; c.fillText('THINK YOU COULD CATCH THEM?', 76, FY + 62);
   c.font = '700 28px ' + PLEX; c.fillText('Computer Networking & Cyber Security', 76, FY + 104);
-  c.fillStyle = '#B9AE92'; c.font = '400 22px ' + MONO; c.fillText('saultcollege.ca · scan for the program', 76, FY + 138);
+  c.fillStyle = '#B9AE92'; c.font = '400 22px ' + MONO; c.fillText('saultcollege.ca · scan for IT programs', 76, FY + 138);
   try {
     const q = window.qrcode(0, 'M'); q.addData(PROGRAM_URL); q.make();
     const n = q.getModuleCount(), size = FH - 28, qx = W - 42 - 14 - size, qy = FY + 14, cell = (size - 12) / n;
@@ -608,51 +776,18 @@ $('copyBtn').addEventListener('click', async () => {
   $('posterMsg').className = 'msg good'; $('posterMsg').textContent = 'Copied. Paste it into your post.';
 });
 
-/* ---------- send me program info ---------- */
-// Saved to Firestore "leads". Visitors can add one but can't read any back;
-// staff export them from leads.html.
-const CONSENT = 'Send me program info. Sault College can email or text me about this program and its events. I can unsubscribe at any time.';
-function parseContact(s) {
-  s = (s || '').trim();
-  if (s.includes('@')) return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(s) && s.length <= 100 ? { contact: s.toLowerCase(), kind: 'email' } : null;
-  let d = s.replace(/\D/g, '');
-  if (d.length === 11 && d[0] === '1') d = d.slice(1);
-  if (d.length === 10) return { contact: d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6), kind: 'phone' };
-  return d.length >= 11 && d.length <= 15 && s.trim().startsWith('+') ? { contact: '+' + d, kind: 'phone' } : null;
-}
-function leadReset() {
-  $('leadOpt').checked = false; $('leadOpt').disabled = false; $('leadForm').hidden = true;
-  $('leadName').value = ''; $('leadContact').value = ''; $('leadWho').value = ''; $('leadMsg').textContent = ''; $('leadSend').disabled = false;
-}
-$('leadOpt').addEventListener('change', () => { $('leadForm').hidden = !$('leadOpt').checked; $('leadMsg').textContent = ''; if ($('leadOpt').checked) $('leadName').focus(); });
-$('leadSend').addEventListener('click', async () => {
-  const m = $('leadMsg'), name = $('leadName').value.replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40), c = parseContact($('leadContact').value);
-  if (!name) { m.className = 'msg bad'; m.textContent = 'Add your first name.'; $('leadName').focus(); return; }
-  if (!c) { m.className = 'msg bad'; m.textContent = 'Enter an email address or a 10-digit mobile number.'; $('leadContact').focus(); return; }
-  const db = await dbReady; if (!db) { m.className = 'msg bad'; m.textContent = 'Can’t connect right now. Ask the booth staff for program info.'; return; }
-  const lead = { name, contact: c.contact, kind: c.kind, event: String((window.OV_CONFIG && window.OV_CONFIG.event) || 'Booth').slice(0, 80), day: dayKey(), consent: CONSENT };
-  if ($('leadWho').value) lead.who = $('leadWho').value;
-  if (school) lead.school = school;
-  $('leadSend').disabled = true; m.className = 'msg info'; m.textContent = 'Sending…';
-  try {
-    await db.addLead(lead);
-    $('leadForm').hidden = true; $('leadOpt').disabled = true; $('leadName').value = ''; $('leadContact').value = ''; $('leadWho').value = '';
-    m.className = 'msg good'; m.textContent = 'Thanks, ' + name + '. Watch for program info from Sault College.';
-  } catch (e) { $('leadSend').disabled = false; m.className = 'msg bad'; m.textContent = 'Couldn’t send that. Check the connection and try again.'; }
-});
-
 /* ---------- reset + booth tablet idle (index.html?kiosk) ---------- */
 function resetStages() {
-  newCipher(); newPerson(); newLog();
+  newCipher(); newPerson(); newLog(); newCode();
   $('shift').value = 0; renderCipher(); ['a1', 'a2'].forEach(id => $(id).value = '');
-  ['m1', 'm2', 'm3', 'm4', 'm5'].forEach(id => $(id).textContent = '');
-  [1, 2, 3].forEach(n => { $('h' + n).hidden = true; document.querySelector('[data-hint="' + n + '"]').disabled = false; });
+  ['m1', 'm2', 'm3', 'm4', 'm5', 'm5c'].forEach(id => $(id).textContent = '');
+  [1, 2, 3, '4c'].forEach(n => { $('h' + n).hidden = true; document.querySelector('[data-hint="' + n + '"]').disabled = false; });
   buildLog(); mi = 0; flagsFound = 0; phishRight = 0; hunting = false; clearTimeout(huntT); entry = ''; renderSlots(); $('door').classList.remove('open');
 }
-function reset() { liveStop(); posterReset(); leadReset(); bLive = false; clearInterval(bTick); if (KIOSK) { $('codeIn').value = ''; school = ''; drawSchools(); } running = false; clearInterval(ticking); stage = 0; $('hud').hidden = true; $('clock').textContent = '0:00'; resetStages(); show('intro'); }
+function reset() { liveStop(); posterReset(); bLive = false; clearInterval(bTick); if (KIOSK) { $('codeIn').value = ''; school = ''; drawSchools(); } running = false; clearInterval(ticking); stage = 0; $('hud').hidden = true; $('clock').textContent = '0:00'; resetStages(); show('intro'); }
 $('againBtn').addEventListener('click', reset);
 let idle = null;
-function armIdle() { if (!KIOSK) return; clearTimeout(idle); if (stage > 0) idle = setTimeout(reset, stage === 6 ? 60000 : 180000); }
+function armIdle() { if (!KIOSK) return; clearTimeout(idle); if (stage > 0) idle = setTimeout(reset, stage === 7 ? 60000 : 180000); }
 ['pointerdown', 'keydown', 'input'].forEach(ev => document.addEventListener(ev, armIdle, { passive: true }));
 
-newCipher(); newPerson(); newLog(); renderCipher(); buildLog();
+newCipher(); newPerson(); newLog(); newCode(); renderCipher(); buildLog();

@@ -8,16 +8,16 @@
 <meta name="theme-color" content="#0A0E0B">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
-<link rel="stylesheet" href="style.css?v=20261023c">
+<link rel="stylesheet" href="style.css?v=20261026b">
 <script src="qrcode.js"></script>
-<script src="config.js?v=20261023c"></script>
+<script src="config.js?v=20261026b"></script>
 </head>
 <body>
 <main id="play">
   <div class="hud" id="hud" hidden>
     <span class="op"><span id="hudName">OP: VAULT</span><span class="streak" id="streak" aria-live="polite"></span></span>
     <div class="pips" aria-label="Progress">
-      <span class="pip" data-p="1">1</span><span class="pip" data-p="2">2</span><span class="pip" data-p="3">3</span><span class="pip" data-p="4">4</span><span class="pip" data-p="5" aria-label="Vault">V</span>
+      <span class="pip" data-p="1">1</span><span class="pip" data-p="2">2</span><span class="pip" data-p="3">3</span><span class="pip" data-p="4">4</span><span class="pip" data-p="5">5</span><span class="pip" data-p="6" aria-label="Vault">V</span>
     </div>
     <span><span class="clock" id="clock">0:00</span><span class="pen" id="pen"></span></span>
   </div>
@@ -26,13 +26,14 @@
   <section class="screen" data-s="intro">
     <p class="kicker">● Incoming job // Sault College Cyber Security</p>
     <h1><span class="g">Operation</span><br>Vault</h1>
-    <p class="brief">Lakehead Logistics (a made-up company) hired you to test their security. Get past four defences, collect four digits, and crack the vault. The clock is running.</p>
+    <p class="brief">Lakehead Logistics (a made-up company) hired you to test their security. Get past five defences, collect five digits, and crack the vault. The clock is running.</p>
     <div class="card stack">
       <div class="mono" style="font-size:14px;color:var(--soft);display:grid;gap:6px">
         <span><span class="g">01</span> Decrypt an intercepted note</span>
         <span><span class="g">02</span> Guess a password from social media</span>
         <span><span class="g">03</span> Find the intruder in the server log</span>
         <span><span class="g">04</span> Spot the phishing messages</span>
+        <span><span class="g">05</span> Fix the scrambled door code</span>
         <span><span class="g">V&nbsp;</span> Crack the vault</span>
       </div>
       <p style="margin:0;font-size:14px;color:var(--muted)">Hints cost 30 seconds. Wrong answers cost 10. Fastest time today tops the leaderboard.</p>
@@ -119,6 +120,25 @@
     </div>
   </section>
 
+  <!-- stage 5: door code (Python) -->
+  <section class="screen" data-s="s5" hidden>
+    <p class="kicker">Defence 05 // Door controller</p>
+    <h2>Fix the door code</h2>
+    <p class="brief">The vault door runs on a short Python program, and someone scrambled its lines. Tap them into the right order, then press RUN. If it works, it prints the last vault digit.</p>
+    <div class="code-ed">
+      <div class="code-bar"><span>door.py</span><button type="button" class="code-reset" id="codeReset">Reset</button></div>
+      <div class="prog" id="prog"></div>
+    </div>
+    <div class="pool" id="pool" aria-label="Scrambled lines"></div>
+    <div class="stack" style="margin-top:14px">
+      <button type="button" class="btn" id="runBtn" disabled>▶ RUN</button>
+      <div class="console" id="console" aria-live="polite" hidden></div>
+      <div class="msg" id="m5c" role="status"></div>
+      <div class="row"><button type="button" class="btn hint small" data-hint="4c">Hint (+30s)</button></div>
+      <div class="hintbox" id="h4c" hidden></div>
+    </div>
+  </section>
+
   <!-- reward (shared) -->
   <section class="screen" data-s="reward" hidden>
     <p class="kicker" id="rwKick">Defence cleared</p>
@@ -136,7 +156,7 @@
     <div class="vault-door" id="door" aria-hidden="true"></div>
     <div class="stack" style="margin-top:16px">
       <div class="collected">DIGITS COLLECTED: <b id="collected"></b></div>
-      <div class="slots" id="slots"><span class="slot"></span><span class="slot"></span><span class="slot"></span><span class="slot"></span></div>
+      <div class="slots" id="slots"><span class="slot"></span><span class="slot"></span><span class="slot"></span><span class="slot"></span><span class="slot"></span></div>
       <div class="keypad" id="keypad"></div>
       <div class="msg" id="m5" role="status" style="text-align:center"></div>
     </div>
@@ -167,9 +187,9 @@
     <div class="badges" id="badges"></div>
     <p class="msg info" id="profLine" hidden></p>
     <div class="lock-callout stack">
-      <div class="mono" style="font-size:13px;letter-spacing:.1em;color:var(--amber)">NOW OPEN THE REAL VAULT AT THE BOOTH</div>
-      <div class="combo" id="combo">0000</div>
-      <div style="font-size:14px;color:var(--soft)">Dial this into the padlock on the box. Prize inside.</div>
+      <div class="mono" style="font-size:13px;letter-spacing:.1em;color:var(--amber)">VAULT CODE</div>
+      <div class="combo" id="combo">00000</div>
+      <div style="font-size:14px;color:var(--soft)">Show this screen at the booth to claim your prize.</div>
     </div>
 
     <div class="stack" id="saveDirect" hidden style="margin-top:20px">
@@ -213,33 +233,14 @@
       </div>
     </div>
 
-    <div class="card stack" id="leadCard" style="margin-top:20px">
+    <div class="card stack" style="margin-top:20px">
       <div style="font-weight:700">Want to do this for real?</div>
-      <div style="color:var(--soft);font-size:15px">Computer Networking &amp; Cyber Security · 2-Year Ontario College Diploma at Sault College.</div>
-      <a class="btn ghost" href="https://www.saultcollege.ca/programs/information-technology-studies/computer-networking-and-cyber-security" target="_blank" rel="noopener">See the program →</a>
-      <div class="stack" id="leadOn" hidden>
-        <label class="check"><input type="checkbox" id="leadOpt"><span><b>Send me program info.</b> Sault College can email or text me about this program and its events. I can unsubscribe at any time.</span></label>
-        <div class="stack" id="leadForm" hidden>
-          <div><label class="l" for="leadName">First name</label><input class="inp" id="leadName" maxlength="40" autocomplete="given-name" style="width:100%"></div>
-          <div><label class="l" for="leadContact">Email or mobile number</label><input class="inp" id="leadContact" maxlength="100" autocomplete="email" inputmode="email" style="width:100%"></div>
-          <div><label class="l" for="leadWho">I am… (optional)</label>
-            <select class="inp" id="leadWho" style="width:100%">
-              <option value="">Choose one</option>
-              <option>High school student</option>
-              <option>Parent or guardian</option>
-              <option>Changing careers</option>
-              <option>Already in college</option>
-              <option>Other</option>
-            </select></div>
-          <button type="button" class="btn" id="leadSend">Send me info</button>
-        </div>
-        <div class="msg" id="leadMsg" role="status"></div>
-      </div>
-      <div class="small-print" id="leadOff" hidden>Want program info? Ask the booth staff.</div>
+      <div style="color:var(--soft);font-size:15px">Explore Sault College’s Information Technology programs, including Computer Networking &amp; Cyber Security.</div>
+      <a class="btn ghost" href="https://www.saultcollege.ca/programs/categories/information-technology-studies" target="_blank" rel="noopener">Explore IT programs →</a>
     </div>
     <div style="margin-top:16px"><button type="button" class="btn ghost" id="againBtn">Play again</button></div>
   </section>
 </main>
-<script type="module" src="game.js?v=20261023c"></script>
+<script type="module" src="game.js?v=20261026b"></script>
 </body>
 </html>

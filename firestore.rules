@@ -2,13 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // Booth staff and recruiters. Paste each staff account's User UID here
-    // (README, step 4). Staff can remove leaderboard names and export leads.
+    // (README, step 4). Staff can remove leaderboard names.
     function isStaff() {
       return request.auth != null
         && request.auth.uid in ['9yyN9Gz04Nfn8vTJjiT5V49K78z1'];
     }
 
-    // School battle: an optional school name on runs, map dots and sign-ups.
+    // School battle: an optional school name on runs and map dots.
     function validSchool(d) {
       return !('school' in d) || (d.school is string && d.school.size() >= 1 && d.school.size() <= 40);
     }
@@ -53,36 +53,11 @@ service cloud.firestore {
         && request.resource.data.name.size() <= 16
         && request.resource.data.stage is int
         && request.resource.data.stage >= 1
-        && request.resource.data.stage <= 6
+        && request.resource.data.stage <= 7
         && request.resource.data.day is string
         && request.resource.data.day.size() == 10
         && request.resource.data.at == request.time;
       allow delete: if true;
-    }
-
-    // "Send me program info" opt-ins. Visitors can add one but never read
-    // any back. Only staff can read (export) or delete them.
-    match /leads/{leadId} {
-      allow create: if request.resource.data.keys().hasOnly(['name', 'contact', 'kind', 'who', 'school', 'event', 'day', 'consent', 'at'])
-        && validSchool(request.resource.data)
-        && request.resource.data.keys().hasAll(['name', 'contact', 'kind', 'event', 'day', 'consent', 'at'])
-        && request.resource.data.name is string
-        && request.resource.data.name.size() >= 1
-        && request.resource.data.name.size() <= 40
-        && request.resource.data.contact is string
-        && request.resource.data.contact.size() >= 5
-        && request.resource.data.contact.size() <= 100
-        && request.resource.data.kind in ['email', 'phone']
-        && (!('who' in request.resource.data) || (request.resource.data.who is string && request.resource.data.who.size() <= 40))
-        && request.resource.data.event is string
-        && request.resource.data.event.size() <= 80
-        && request.resource.data.day is string
-        && request.resource.data.day.size() == 10
-        && request.resource.data.consent is string
-        && request.resource.data.consent.size() <= 400
-        && request.resource.data.at == request.time;
-      allow read, delete: if isStaff();
-      allow update: if false;
     }
   }
 }

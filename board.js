@@ -1,4 +1,4 @@
-import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261023c';
+import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261026b';
 
 const $ = id => document.getElementById(id);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -111,19 +111,21 @@ function drawBattle(live) {
 }
 
 /* ---------- live intruder map ---------- */
-// Players at stage 1–5 sit at that node; stage 6 means they opened the vault.
+// Players at stage 1–6 sit at that node; stage 7 means they opened the vault.
+// Node n sits at NODE_X[n] across the map.
 // A dot disappears when its phone stops checking in (STALE), or soon after the vault opens.
-const STALE = 120000, VAULT_SHOW = 25000, MAXC = 3;
+const STALE = 120000, VAULT_SHOW = 25000, MAXC = 3, NODES = 6, NODE_X = n => ((n - .5) * 100 / NODES).toFixed(2) + '%';
 const ALERT = {
   1: ['w', n => 'New intruder ' + n + ' is probing the firewall'],
   2: ['w', n => n + ' cracked the cipher and slipped past the firewall'],
   3: ['h', n => n + ' cracked a staff password'],
   4: ['h', n => n + ' traced the break-in in the server logs'],
-  5: ['c', n => n + ' beat the phishing test and is heading for the vault'],
-  6: ['c', n => n + ' OPENED THE VAULT']
+  5: ['h', n => n + ' beat the phishing test and is rewriting the door code'],
+  6: ['c', n => n + ' fixed the door code and is heading for the vault'],
+  7: ['c', n => n + ' OPENED THE VAULT']
 };
 const live = new Map(), demo = new Map(), chips = new Map(), seenStage = new Map();
-function addAlert(stageN, name, school) { const [sev, txt] = ALERT[stageN]; pushAlert(sev, txt((name || 'Anonymous') + (school ? ' (' + school + ')' : '')), stageN >= 5); }
+function addAlert(stageN, name, school) { const [sev, txt] = ALERT[stageN]; pushAlert(sev, txt((name || 'Anonymous') + (school ? ' (' + school + ')' : '')), stageN >= 6); }
 function pushAlert(sev, text, hi) {
   const li = document.createElement('li'); li.className = 'new';
   const tm = document.createElement('span'); tm.className = 'at'; tm.textContent = new Date().toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -141,23 +143,23 @@ function track(row, initial) {
   seenStage.set(row.id, row.stage);
 }
 function onScreen(now = Date.now()) {
-  return [...live.values(), ...demo.values()].filter(r => now - r.seen < STALE && !(r.stage === 6 && now - r.movedAt > VAULT_SHOW));
+  return [...live.values(), ...demo.values()].filter(r => now - r.seen < STALE && !(r.stage === 7 && now - r.movedAt > VAULT_SHOW));
 }
 function drawMap() {
   const rows = onScreen(), net = $('net');
-  const inside = rows.filter(r => r.stage < 6).length;
+  const inside = rows.filter(r => r.stage < 7).length;
   $('inCount').textContent = inside;
   $('inText').textContent = inside === 0 ? 'intruders detected. The network is quiet… for now.' : (inside === 1 ? 'intruder' : 'intruders') + ' inside the network right now';
   $('inCount').classList.toggle('hot', inside > 0);
-  const byNode = { 1: [], 2: [], 3: [], 4: [], 5: [] };
-  rows.forEach(r => byNode[Math.min(r.stage, 5)].push(r));
+  const byNode = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+  rows.forEach(r => byNode[Math.min(r.stage, NODES)].push(r));
   const want = new Map();
   Object.entries(byNode).forEach(([n, list]) => {
     list.sort((a, b) => a.movedAt - b.movedAt);
     const node = net.querySelector('.node[data-n="' + n + '"]');
     node.classList.toggle('hot', list.length > 0); node.querySelector('.nc').textContent = list.length || '';
     const shown = list.length > MAXC ? list.slice(0, MAXC - 1) : list;
-    shown.forEach((r, i) => want.set(r.id, { n: +n, i, name: r.name || 'Anonymous', won: r.stage === 6, sc: r.school ? schoolColor(r.school) : '' }));
+    shown.forEach((r, i) => want.set(r.id, { n: +n, i, name: r.name || 'Anonymous', won: r.stage === 7, sc: r.school ? schoolColor(r.school) : '' }));
     if (list.length > MAXC) want.set('_more' + n, { n: +n, i: MAXC - 1, name: '+' + (list.length - MAXC + 1) + ' more', more: true });
   });
   chips.forEach((el, id) => { if (!want.has(id)) { chips.delete(id); el.classList.add('gone'); setTimeout(() => el.remove(), 600); } });
@@ -165,12 +167,12 @@ function drawMap() {
     let el = chips.get(id);
     if (!el) {
       el = document.createElement('div'); el.className = 'chip';
-      el.style.setProperty('--x', w.more ? (w.n * 20 - 10) + '%' : '-6%'); el.style.setProperty('--i', w.i);
+      el.style.setProperty('--x', w.more ? NODE_X(w.n) : '-6%'); el.style.setProperty('--i', w.i);
       net.appendChild(el); chips.set(id, el); void el.offsetWidth;
     }
     el.textContent = w.name; el.classList.toggle('more', !!w.more); el.classList.toggle('won', !!w.won);
     if (w.sc) el.style.setProperty('--sc', w.sc); else el.style.removeProperty('--sc');
-    el.style.setProperty('--x', (w.n * 20 - 10) + '%'); el.style.setProperty('--i', w.i);
+    el.style.setProperty('--x', NODE_X(w.n)); el.style.setProperty('--i', w.i);
   });
 }
 setInterval(drawMap, 5000);
@@ -179,9 +181,9 @@ setInterval(drawMap, 5000);
 function runDemo() {
   const id = '_demo' + Date.now(), name = 'TEST-' + (10 + Math.floor(Math.random() * 90));
   const sl = CFG.schools || [], school = sl.length ? sl[Math.floor(Math.random() * sl.length)] : '';
-  [1, 2, 3, 4, 5, 6].forEach((n, k) => setTimeout(() => {
+  [1, 2, 3, 4, 5, 6, 7].forEach((n, k) => setTimeout(() => {
     const row = { id, name, school, stage: n, at: Date.now() }; track(row, false); demo.set(id, row); drawMap();
-    if (n === 6) { setTimeout(() => { demo.delete(id); drawMap(); }, 8000); queue.push({ name, school, secs: 154, id: '_test' }); setTimeout(celebrate, 2500); }
+    if (n === 7) { setTimeout(() => { demo.delete(id); drawMap(); }, 8000); queue.push({ name, school, secs: 154, id: '_test' }); setTimeout(celebrate, 2500); }
   }, k * 2200));
 }
 

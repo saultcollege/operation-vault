@@ -129,6 +129,7 @@ h2{font-size:clamp(36px,10vw,52px);line-height:.95;margin-bottom:12px}
 .cl{display:grid;grid-template-columns:2.4em minmax(0,1fr);align-items:center;width:100%;min-height:40px;padding:4px 8px 4px 0;border:0;background:transparent;color:#E2E8F0;font-family:var(--mono);font-size:14px;text-align:left}
 .cl .no{color:#5F7395;text-align:right;padding-right:10px;font-size:12px}
 .cl .tx{white-space:pre;overflow-x:auto}
+.cl .cm{color:#7FA37A}
 .prog .cl:hover{background:#1A2740}
 .pool{display:flex;flex-direction:column;gap:6px;margin-top:12px}
 .pool .cl{border:2px dashed #3A4A66;border-radius:4px;background:#0B1220;padding-left:10px;grid-template-columns:0 minmax(0,1fr)}

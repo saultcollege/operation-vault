@@ -1,4 +1,4 @@
-import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261026b';
+import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261026c';
 
 const VAULT = String((window.OV_CONFIG && window.OV_CONFIG.vault) || '73192').replace(/\D/g, '').padEnd(5, '0').slice(0, 5);
 const KIOSK = new URLSearchParams(location.search).has('kiosk');
@@ -350,12 +350,12 @@ const CODE_TEMPLATES = [
     const hot = Math.random() < .5, t = hot ? rnd(61, 95) : rnd(20, 59);
     let other; do { other = rnd(0, 9); } while (other === d);
     const a = hot ? d : other, b = hot ? other : d;
-    return { name: 'alarm', hint: 'Set the temperature first. Each indented line goes right under its if or else. The else comes straight after the if’s line.', lines: [
+    return { name: 'alarm', hint: 'Set the temperature first. The comments after # say which digit line belongs under the if (over 60) and which under the else. The else goes straight after the if’s indented line.', lines: [
       ['temp = ' + t, 0, { set: 'temp', f: e => t }],
       ['if temp > 60:', 0, { if: e => e.temp > 60 }],
-      ['digit = ' + a, 4, { set: 'digit', f: e => a }],
+      ['digit = ' + a + '  # too hot: over 60', 4, { set: 'digit', f: e => a }],
       ['else:', 0, { else: true }],
-      ['digit = ' + b, 4, { set: 'digit', f: e => b }],
+      ['digit = ' + b + '  # normal: 60 or less', 4, { set: 'digit', f: e => b }],
       ['print("Override digit:", digit)', 0, { print: e => ['Override digit:', e.digit] }]] };
   },
   d => { // string length
@@ -424,7 +424,9 @@ function newCode() {
 function codeLine(l, i) {
   const b = document.createElement('button'); b.type = 'button'; b.className = 'cl';
   const no = document.createElement('span'); no.className = 'no'; no.textContent = i == null ? '' : i + 1;
-  const tx = document.createElement('span'); tx.className = 'tx'; tx.textContent = ' '.repeat(l[1]) + l[0];
+  const tx = document.createElement('span'); tx.className = 'tx'; const k = l[0].indexOf('  #');
+  tx.textContent = ' '.repeat(l[1]) + (k < 0 ? l[0] : l[0].slice(0, k));
+  if (k >= 0) { const cm = document.createElement('span'); cm.className = 'cm'; cm.textContent = l[0].slice(k); tx.appendChild(cm); }
   b.append(no, tx); return b;
 }
 function renderCode() {

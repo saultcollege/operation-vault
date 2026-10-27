@@ -8,17 +8,18 @@
 <meta name="theme-color" content="#0A0E0B">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
-<link rel="stylesheet" href="style.css?v=20261026c">
+<link rel="stylesheet" href="style.css?v=20261027a">
 <script src="qrcode.js"></script>
-<script src="config.js?v=20261026c"></script>
+<script src="config.js?v=20261027a"></script>
 </head>
 <body>
 <div id="board">
   <div class="b-top">
-    <span><span class="dot" aria-hidden="true"></span>OPERATION: VAULT // LIVE FROM THE SAULT COLLEGE CYBER SECURITY BOOTH</span>
+    <span><span class="dot" aria-hidden="true"></span>OPERATION: VAULT // LIVE FROM THE SAULT COLLEGE CYBER SECURITY BOOTH <span class="gate-tag" id="gateTag" hidden>GAME OFF</span></span>
     <div class="b-ctrl">
       <button type="button" class="btn ghost" id="soundBtn" aria-pressed="false">Sound off</button>
       <button type="button" class="btn ghost" id="fsBtn">Full screen</button>
+      <button type="button" class="btn ghost" id="gameBtn" hidden>Game: ON</button>
       <button type="button" class="btn ghost" id="manageBtn" aria-pressed="false" hidden>Manage</button>
       <button type="button" class="btn ghost" id="testBtn">Test alarm</button>
       <button type="button" class="btn ghost" id="staffBtn">Staff sign-in</button>
@@ -88,6 +89,6 @@
   </form>
 </div>
 
-<script type="module" src="board.js?v=20261026c"></script>
+<script type="module" src="board.js?v=20261027a"></script>
 </body>
 </html>

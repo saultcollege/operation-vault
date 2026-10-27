@@ -52,6 +52,11 @@ export async function initDb() {
           onChange(snap.docs.map(liveOf), snap.docChanges().map(c => ({ type: c.type, row: liveOf(c.doc) })));
         }, onError);
       },
+      // Staff on/off switch for the game (settings/game). A missing doc means open.
+      watchGame(onOpen, onError) {
+        return fs.onSnapshot(fs.doc(store, 'settings', 'game'), snap => onOpen(!snap.exists() || snap.data().open !== false), onError);
+      },
+      setGameOpen: open => fs.setDoc(fs.doc(store, 'settings', 'game'), { open, at: fs.serverTimestamp() }),
       deleteRun: id => fs.deleteDoc(fs.doc(store, 'runs', id)),
       signIn: (email, pw) => au.signInWithEmailAndPassword(auth, email, pw),
       signOut: () => au.signOut(auth),

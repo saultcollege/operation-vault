@@ -80,6 +80,8 @@ The big-screen QR code points to your site automatically. If you use a custom do
 
 **Wanted poster:** winners can tap **Make my poster** for a mugshot-style WANTED poster with their name and time, plus a QR code to Sault College’s IT programs page. They can add a selfie or a photo from their gallery, then share or download it. A ready-made caption with the program link is there to copy. Everything is drawn on their phone and photos are never uploaded. The poster is hidden on the booth tablet (`?kiosk`) so selfies don't pile up on a shared device.
 
+**Turning the game on and off:** on the board, click **Staff sign-in**, then **Game: ON** to switch it off (click again to switch it back on). While it's off, anyone who opens the game sees a showcase of the Computer Networking & Cyber Security and Computer Programming programs instead, and the board shows a red GAME OFF tag. Players already mid-game can finish and post. Until you use the switch for the first time, the game is on.
+
 **Removing a name:** on the board, click **Staff sign-in**, log in, click **Manage**, then click ✕ next to the entry.
 
 **New day:** the board shows only today's runs, so it resets at midnight on its own. Older runs stay in Firestore if you ever want them.

@@ -1,4 +1,4 @@
-import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261026c';
+import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261027a';
 
 const VAULT = String((window.OV_CONFIG && window.OV_CONFIG.vault) || '73192').replace(/\D/g, '').padEnd(5, '0').slice(0, 5);
 const KIOSK = new URLSearchParams(location.search).has('kiosk');
@@ -786,10 +786,24 @@ function resetStages() {
   [1, 2, 3, '4c'].forEach(n => { $('h' + n).hidden = true; document.querySelector('[data-hint="' + n + '"]').disabled = false; });
   buildLog(); mi = 0; flagsFound = 0; phishRight = 0; hunting = false; clearTimeout(huntT); entry = ''; renderSlots(); $('door').classList.remove('open');
 }
-function reset() { liveStop(); posterReset(); bLive = false; clearInterval(bTick); if (KIOSK) { $('codeIn').value = ''; school = ''; drawSchools(); } running = false; clearInterval(ticking); stage = 0; $('hud').hidden = true; $('clock').textContent = '0:00'; resetStages(); show('intro'); }
+function reset() { liveStop(); posterReset(); if (!gameOpen) { stage = 0; $('hud').hidden = true; running = false; clearInterval(ticking); show('offline'); return; } bLive = false; clearInterval(bTick); if (KIOSK) { $('codeIn').value = ''; school = ''; drawSchools(); } running = false; clearInterval(ticking); stage = 0; $('hud').hidden = true; $('clock').textContent = '0:00'; resetStages(); show('intro'); }
 $('againBtn').addEventListener('click', reset);
 let idle = null;
 function armIdle() { if (!KIOSK) return; clearTimeout(idle); if (stage > 0) idle = setTimeout(reset, stage === 7 ? 60000 : 180000); }
 ['pointerdown', 'keydown', 'input'].forEach(ev => document.addEventListener(ev, armIdle, { passive: true }));
 
 newCipher(); newPerson(); newLog(); newCode(); renderCipher(); buildLog();
+
+/* ---------- staff on/off switch (board.html) ---------- */
+// While the game is off, the start screen becomes a program showcase.
+// Anyone mid-game can still finish. If Firebase can't be reached, the
+// game stays open (it also works offline).
+let gameOpen = true;
+function applyGate(open) {
+  gameOpen = open; document.documentElement.classList.remove('gate-wait');
+  const on = screens.find(s => !s.hidden);
+  if (!open && stage === 0) show('offline');
+  else if (open && on && on.dataset.s === 'offline') show('intro');
+}
+setTimeout(() => document.documentElement.classList.remove('gate-wait'), 4000);
+dbReady.then(db => { if (!db) return applyGate(true); db.watchGame(applyGate, () => applyGate(true)); }).catch(() => applyGate(true));

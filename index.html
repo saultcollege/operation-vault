@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="gate-wait">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -8,9 +8,9 @@
 <meta name="theme-color" content="#0A0E0B">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap">
-<link rel="stylesheet" href="style.css?v=20261026c">
+<link rel="stylesheet" href="style.css?v=20261027a">
 <script src="qrcode.js"></script>
-<script src="config.js?v=20261026c"></script>
+<script src="config.js?v=20261027a"></script>
 </head>
 <body>
 <main id="play">
@@ -45,6 +45,49 @@
       <button type="button" class="btn" id="startBtn">Start the clock →</button>
     </div>
     <p class="foot">Sault College · Computer Networking &amp; Cyber Security. All people, companies and messages in this game are made up.</p>
+  </section>
+
+  <!-- shown instead of the game while staff have switched it off (board.html) -->
+  <section class="screen" data-s="offline" hidden>
+    <p class="kicker" style="color:var(--red)">● Vault sealed</p>
+    <h1><span class="g">Operation Vault</span><br>is offline</h1>
+    <p class="brief">The game only opens at Sault College events. While it’s locked, here’s how to learn to do this for real.</p>
+
+    <article class="prog-card" style="--pc:var(--accent)">
+      <div class="prog-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+      <p class="prog-tag">Ontario College Diploma · 2 years</p>
+      <h2 class="prog-name">Computer Networking &amp; Cyber Security</h2>
+      <p class="prog-lead">Learn to secure, manage and protect the networks organizations run on.</p>
+      <ul class="prog-list">
+        <li>Hands-on labs with routers, switches, firewalls, VPNs and IoT devices</li>
+        <li>Build skills in Network+, Security+, Cisco, Microsoft Azure, Oracle Cloud and VMware</li>
+        <li>Final-semester capstone: design, secure and test a full network</li>
+      </ul>
+      <p class="prog-jobs"><b>Careers:</b> cybersecurity specialist, network technician, information systems analyst</p>
+      <a class="btn" href="https://www.saultcollege.ca/programs/information-technology-studies/computer-networking-and-cyber-security" target="_blank" rel="noopener">See the program →</a>
+    </article>
+
+    <article class="prog-card" style="--pc:#38D6FF">
+      <div class="prog-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg></div>
+      <p class="prog-tag">Ontario College Diploma · 2 years</p>
+      <h2 class="prog-name">Computer Programming</h2>
+      <p class="prog-lead">Turn ideas into working software.</p>
+      <ul class="prog-list">
+        <li>Code in Python, Java and JavaScript</li>
+        <li>Build standalone, web and database-driven applications</li>
+        <li>Capstone: build a prototype for a real business or community partner</li>
+        <li>Pathway to an Algoma University Bachelor of Computer Science in as little as one more year</li>
+      </ul>
+      <p class="prog-jobs"><b>Careers:</b> software developer, web and database programmer, systems analyst</p>
+      <a class="btn" href="https://www.saultcollege.ca/programs/information-technology-studies/computer-programming" target="_blank" rel="noopener">See the program →</a>
+    </article>
+
+    <div class="card stack" style="margin-top:16px">
+      <div style="font-weight:700">Can’t decide?</div>
+      <div style="color:var(--soft);font-size:15px">Both programs share the same first semester, and Computer Programming graduates can add the Networking &amp; Cyber Security diploma with advanced standing.</div>
+      <a class="btn ghost" href="https://www.saultcollege.ca/programs/categories/information-technology-studies" target="_blank" rel="noopener">Explore all IT programs →</a>
+    </div>
+    <p class="foot">Operation Vault will be back at our next event. Sault College · Information Technology Studies.</p>
   </section>
 
   <!-- stage 1: cipher -->
@@ -241,6 +284,6 @@
     <div style="margin-top:16px"><button type="button" class="btn ghost" id="againBtn">Play again</button></div>
   </section>
 </main>
-<script type="module" src="game.js?v=20261026c"></script>
+<script type="module" src="game.js?v=20261027a"></script>
 </body>
 </html>

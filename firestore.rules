@@ -59,5 +59,14 @@ service cloud.firestore {
         && request.resource.data.at == request.time;
       allow delete: if true;
     }
+
+    // Game on/off switch. Everyone can read it; only staff can flip it.
+    match /settings/{name} {
+      allow read: if true;
+      allow write: if isStaff()
+        && request.resource.data.keys().hasOnly(['open', 'at'])
+        && request.resource.data.open is bool
+        && request.resource.data.at == request.time;
+    }
   }
 }

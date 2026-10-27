@@ -1,4 +1,4 @@
-import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261026c';
+import { initDb, dayKey, fmt, schoolColor } from './db.js?v=20261027a';
 
 const $ = id => document.getElementById(id);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -224,12 +224,24 @@ $('staffForm').addEventListener('submit', async e => {
 });
 $('manageBtn').addEventListener('click', () => { manage = !manage; $('manageBtn').setAttribute('aria-pressed', manage); $('manageBtn').textContent = manage ? 'Done' : 'Manage'; render(); });
 
+/* ---------- game on/off (staff) ---------- */
+let gameOpen = true;
+$('gameBtn').addEventListener('click', async () => {
+  const msg = gameOpen ? 'Turn the game OFF? New visitors will see the program showcase instead. Anyone mid-game can still finish.' : 'Turn the game back ON for everyone?';
+  if (!confirm(msg)) return;
+  try { await db.setGameOpen(!gameOpen); } catch (e) { note('Couldn’t change the game switch. Check that your staff UID is in the Firestore rules and the latest rules are published.'); }
+});
+
 /* ---------- start ---------- */
 (async () => {
   render(); drawMap();
   db = await initDb();
   if (!db) { note('Leaderboard not connected: add your Firebase settings to config.js (see README).'); return; }
-  db.onAuth(u => { staff = !!u; $('manageBtn').hidden = !staff; $('staffBtn').textContent = staff ? 'Sign out' : 'Staff sign-in'; if (!staff) manage = false; render(); });
+  db.onAuth(u => { staff = !!u; $('manageBtn').hidden = !staff; $('gameBtn').hidden = !staff; $('staffBtn').textContent = staff ? 'Sign out' : 'Staff sign-in'; if (!staff) manage = false; render(); });
+  db.watchGame(open => {
+    gameOpen = open; $('gateTag').hidden = open;
+    $('gameBtn').textContent = 'Game: ' + (open ? 'ON' : 'OFF'); $('gameBtn').classList.toggle('off', !open);
+  }, () => {});
   let day = dayKey(), unsub = null, unsubLive = null;
   const sub = () => {
     if (unsub) unsub();
